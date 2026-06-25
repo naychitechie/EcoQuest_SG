@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RoutesComparison, Route, Location } from '@/lib/types';
+import { RoutesComparison, Route } from '@/lib/types';
 import dynamic from 'next/dynamic';
 
 // Dynamically import RouteMap to avoid SSR Leaflet window errors
@@ -32,6 +32,21 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
   const carDuration = driveRoute ? driveRoute.totalDuration : 25;
   const carEmissions = driveRoute ? driveRoute.carbonEmissions : 147 * carDistance;
 
+  // Helper helper function to construct clean Google Maps Universal Links
+  const getGoogleMapsUrl = (mode: ModeType) => {
+    const originEnc = encodeURIComponent(comparison.origin.name);
+    const destEnc = encodeURIComponent(comparison.destination.name);
+
+    // Map application internal modes to Google Maps travelmode parameters
+    // transit (r), walking (w), bicycling (b)
+    let travelMode = 'transit';
+    if (mode === 'WALK') travelMode = 'walking';
+    if (mode === 'CYCLE') travelMode = 'bicycling';
+    if (mode === 'BUS' || mode === 'MRT' || mode === 'COMBO') travelMode = 'transit';
+
+    return `https://www.google.com/maps/dir/?api=1&origin=${originEnc}&destination=${destEnc}&travelmode=${travelMode}`;
+  };
+
   // Process and simulate data for the 5 options
   const options = {
     MRT: {
@@ -51,6 +66,7 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
       isGreenest: true,
       isEcoChoice: false,
       rawRoute: ptRoute,
+      mapsUrl: getGoogleMapsUrl('MRT'),
     },
     BUS: {
       mode: 'BUS' as const,
@@ -69,6 +85,7 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
       isGreenest: false,
       isEcoChoice: false,
       rawRoute: ptRoute,
+      mapsUrl: getGoogleMapsUrl('BUS'),
     },
     WALK: {
       mode: 'WALK' as const,
@@ -91,6 +108,7 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
       isGreenest: false,
       isEcoChoice: false,
       rawRoute: walkRoute,
+      mapsUrl: getGoogleMapsUrl('WALK'),
     },
     CYCLE: {
       mode: 'CYCLE' as const,
@@ -115,6 +133,7 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
         mode: 'WALK', // mapped to walk for rendering fallback
         totalDuration: walkRoute.totalDuration / 4.5,
       } as Route : null,
+      mapsUrl: getGoogleMapsUrl('CYCLE'),
     },
     COMBO: {
       mode: 'COMBO' as const,
@@ -133,6 +152,7 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
       isGreenest: false,
       isEcoChoice: true,
       rawRoute: ptRoute,
+      mapsUrl: getGoogleMapsUrl('COMBO'),
     }
   };
 
@@ -141,15 +161,6 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
   // Calculate carbon savings relative to driving
   const currentEmissions = activeOption.emissionsPerKm * activeOption.distance;
   const carbonSavings = Math.max(0, carEmissions - currentEmissions);
-  const carbonSavingsKg = Number((carbonSavings / 1000).toFixed(1));
-
-  // Phone charges equivalent (1 phone charge = 7.6g of CO2 emissions)
-  const phoneCharges = Math.round(carbonSavings / 7.6);
-  let impactComparisonText = `that's like charging your phone every day for ${phoneCharges} days!`;
-  if (phoneCharges >= 365) {
-    const years = (phoneCharges / 365).toFixed(1);
-    impactComparisonText = `that's like charging your phone every day for ${years === '1.0' ? 'a whole year' : `${years} years`}!`;
-  }
 
   // Format currency
   const formatFare = (val: number) => {
@@ -270,11 +281,9 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
           const opt = options[key];
           const isSelected = selectedMode === key;
 
-          // Calculate emissions details
           const ems = opt.emissionsPerKm * opt.distance;
           const barWidth = Math.min(100, Math.max(2, (ems / carEmissions) * 100));
 
-          // Set outline color based on hover/selection
           let borderStyle = '0.5px solid var(--eco-outline-variant)';
           let bgStyle = 'var(--eco-surface-container-lowest)';
 
@@ -322,31 +331,48 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
               )}
 
               {/* Title & Icons */}
-              <div className="flex items-center gap-3 mb-4" style={{ marginTop: (opt.isGreenest || opt.isEcoChoice) ? '8px' : '0' }}>
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: opt.iconBg, color: opt.iconColor }}
-                >
-                  <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
-                </div>
-                <div>
-                  <h3 className="text-[16px] font-bold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
-                    {opt.label}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {opt.badge && (
-                      <span
-                        className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
-                        style={{ background: opt.badgeColor }}
-                      >
-                        {opt.badge}
+              <div className="flex items-center justify-between gap-3 mb-4" style={{ marginTop: (opt.isGreenest || opt.isEcoChoice) ? '8px' : '0' }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: opt.iconBg, color: opt.iconColor }}
+                  >
+                    <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
+                      {opt.label}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {opt.badge && (
+                        <span
+                          className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
+                          style={{ background: opt.badgeColor }}
+                        >
+                          {opt.badge}
+                        </span>
+                      )}
+                      <span className="text-[11px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
+                        {opt.badgeText}
                       </span>
-                    )}
-                    <span className="text-[11px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                      {opt.badgeText}
-                    </span>
+                    </div>
                   </div>
                 </div>
+                {/* External Maps Actionable Trigger Link */}
+                <a
+                  href={opt.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-8 h-8 rounded-full border border-[var(--eco-outline-variant)] flex items-center justify-center transition-all bg-[var(--eco-surface-container-lowest)] hover:bg-[var(--eco-surface-container-high)] overflow-hidden shrink-0 mt-[12px]"
+                  title={`Open ${opt.label} route in Google Maps`}
+                >
+                  <img
+                    src="/icons/google-map-icon.png"
+                    alt="Google Maps"
+                    className="w-[18px] h-[18px] object-contain"
+                  />
+                </a>
               </div>
 
               {/* Card Metrics */}
@@ -460,31 +486,49 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
                   Eco Choice
                 </div>
               )}
-              <div className="flex items-center gap-3 mb-4" style={{ marginTop: (opt.isGreenest || opt.isEcoChoice) ? '8px' : '0' }}>
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: opt.iconBg, color: opt.iconColor }}
-                >
-                  <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
-                </div>
-                <div>
-                  <h3 className="text-[16px] font-bold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
-                    {opt.label}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {opt.badge && (
-                      <span
-                        className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
-                        style={{ background: opt.badgeColor }}
-                      >
-                        {opt.badge}
+              <div className="flex items-center justify-between gap-3 mb-4" style={{ marginTop: (opt.isGreenest || opt.isEcoChoice) ? '8px' : '0' }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: opt.iconBg, color: opt.iconColor }}
+                  >
+                    <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
+                      {opt.label}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {opt.badge && (
+                        <span
+                          className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
+                          style={{ background: opt.badgeColor }}
+                        >
+                          {opt.badge}
+                        </span>
+                      )}
+                      <span className="text-[11px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
+                        {opt.badgeText}
                       </span>
-                    )}
-                    <span className="text-[11px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                      {opt.badgeText}
-                    </span>
+                    </div>
                   </div>
                 </div>
+
+                {/* External Maps Actionable Trigger Link */}
+                <a
+                  href={opt.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-8 h-8 rounded-full border border-[var(--eco-outline-variant)] flex items-center justify-center transition-all bg-[var(--eco-surface-container-lowest)] hover:bg-[var(--eco-surface-container-high)] overflow-hidden shrink-0 mt-[12px]"
+                  title={`Open ${opt.label} route in Google Maps`}
+                >
+                  <img
+                    src="/icons/google-map-icon.png"
+                    alt="Google Maps"
+                    className="w-[18px] h-[18px] object-contain"
+                  />
+                </a>
               </div>
               <div className="space-y-2 mt-auto">
                 <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>

@@ -61,7 +61,9 @@ dist
 
 # Gatsby files
 .cache/
-public/
+# Allow the public folder, but feel free to ignore specific generated items inside it
+/public/*
+!/public/icons/
 
 # Serverless Webpack directories
 .webpack/
