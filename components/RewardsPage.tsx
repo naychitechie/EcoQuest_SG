@@ -4,12 +4,12 @@ import { useState } from 'react';
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 const BADGES = [
-  { icon: 'park', label: 'TREE PLANTER', earned: true, color: '#275300' },
-  { icon: 'pedal_bike', label: 'PEDAL POWER', earned: true, color: '#275300' },
-  { icon: 'bolt', label: 'GRID SAVER', earned: true, color: '#275300' },
-  { icon: 'directions_transit', label: 'MRT MASTER', earned: true, color: '#275300' },
-  { icon: 'groups', label: 'CARPOOL HERO', earned: true, color: '#275300' },
-  { icon: 'add', label: '', earned: false, color: '' },
+  { icon: 'park', label: 'TREE PLANTER', earned: true, color: 'var(--eco-tertiary)', bgColor: 'var(--eco-tertiary-container)' },
+  { icon: 'pedal_bike', label: 'PEDAL POWER', earned: true, color: 'var(--eco-secondary)', bgColor: 'var(--eco-secondary-fixed-dim)' },
+  { icon: 'bolt', label: 'GRID SAVER', earned: false, color: 'var(--eco-outline)', bgColor: 'var(--eco-surface-container)' },
+  { icon: 'directions_transit', label: 'MRT MASTER', earned: true, color: 'var(--eco-primary)', bgColor: 'var(--eco-success-mint-bg)' },
+  { icon: 'groups', label: 'CARPOOL HERO', earned: false, color: 'var(--eco-outline)', bgColor: 'var(--eco-surface-container)' },
+  { icon: 'add', label: '', earned: false, color: 'var(--eco-outline)', bgColor: 'transparent' },
 ];
 
 const REWARDS = [
@@ -19,8 +19,8 @@ const REWARDS = [
     desc: 'Direct credit to your transit card.',
     points: 500,
     tag: 'SAVER',
-    bgColor: '#E8D5CE',
-    iconColor: '#275300',
+    bgColorClass: 'pattern-dots-blue',
+    iconColor: '#3C3489',
     locked: false,
   },
   {
@@ -29,8 +29,8 @@ const REWARDS = [
     desc: 'Buy 1 Get 1 Free coffee/tea.',
     points: 350,
     tag: null,
-    bgColor: '#D1E8D5',
-    iconColor: '#275300',
+    bgColorClass: 'pattern-dots-peach',
+    iconColor: '#812800',
     locked: false,
   },
   {
@@ -39,8 +39,8 @@ const REWARDS = [
     desc: 'Single entry ticket for Cloud Forest.',
     points: 2500,
     tag: null,
-    bgColor: '#C5E0D8',
-    iconColor: '#275300',
+    bgColorClass: 'pattern-dots-mint',
+    iconColor: '#085041',
     locked: false,
   },
   {
@@ -49,7 +49,7 @@ const REWARDS = [
     desc: 'Unlocked at Level 15',
     points: 0,
     tag: null,
-    bgColor: '#E8E6E0',
+    bgColorClass: 'pattern-dots-grey',
     iconColor: '#727969',
     locked: true,
   },
@@ -105,7 +105,7 @@ export default function RewardsPage() {
             Rewards &amp; Milestones
           </h1>
           <p className="text-body-md mt-1" style={{ color: 'var(--eco-on-surface-variant)' }}>
-            Good afternoon! Your carbon savings are making an impact.
+            Good morning! Start your day with some green miles.
           </p>
         </div>
 
@@ -148,7 +148,7 @@ export default function RewardsPage() {
       {/* ── Daily Steps + Badges Row ─────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Daily Step Milestones */}
-        <div className="lg:col-span-2 eco-card">
+        <div className="lg:col-span-2 eco-card flex flex-col justify-between">
           <div className="flex items-start justify-between mb-3">
             <div>
               <h3 className="text-[16px] font-semibold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
@@ -168,55 +168,85 @@ export default function RewardsPage() {
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="relative mb-6 pt-6">
-            {/* Marker for 5000 steps */}
+          {/* Progress bar container */}
+          <div className="relative mb-6 pt-6 pb-4">
+            {/* Progress track */}
             <div
-              className="absolute left-[50%] -top-0 flex flex-col items-center z-10"
-              style={{ transform: 'translateX(-50%)' }}
-            >
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: 'var(--eco-mrt-teal)' }}
-              />
-            </div>
-
-            <div
-              className="w-full h-3 rounded-full relative overflow-hidden"
+              className="w-full h-2 rounded-full relative"
               style={{ background: 'var(--eco-surface-container-highest)' }}
             >
+              {/* Fill */}
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{
                   width: `${Math.min(100, (dailySteps / dailyStepGoal) * 100)}%`,
-                  background: `linear-gradient(90deg, var(--eco-primary) 0%, var(--eco-mrt-teal) 100%)`,
+                  background: 'var(--eco-primary)',
                 }}
               />
+
+              {/* Dot marker for 5,000 steps (50%) */}
+              <div
+                className="absolute top-1/2 left-[50%] -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 bg-white flex items-center justify-center transition-colors"
+                style={{
+                  borderColor: dailySteps >= 5000 ? 'var(--eco-primary)' : 'var(--eco-outline-variant)',
+                }}
+              >
+                <div 
+                  className="w-1.5 h-1.5 rounded-full" 
+                  style={{ background: dailySteps >= 5000 ? 'var(--eco-primary)' : 'var(--eco-outline-variant)' }}
+                />
+              </div>
+
+              {/* Dot marker for 10,000 steps (100%) */}
+              <div
+                className="absolute top-1/2 left-[100%] -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 bg-white flex items-center justify-center transition-colors"
+                style={{
+                  borderColor: dailySteps >= 10000 ? 'var(--eco-primary)' : 'var(--eco-outline-variant)',
+                }}
+              >
+                <div 
+                  className="w-1.5 h-1.5 rounded-full" 
+                  style={{ background: dailySteps >= 10000 ? 'var(--eco-primary)' : 'var(--eco-outline-variant)' }}
+                />
+              </div>
             </div>
 
-            {/* Labels */}
-            <div className="flex justify-between mt-2">
-              <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
+            {/* Labels under the bar */}
+            <div className="flex justify-between mt-3 text-[11px] relative">
+              <span className="text-label-caps text-[9px] font-bold" style={{ color: 'var(--eco-on-surface-variant)' }}>
                 START
               </span>
-              <div className="text-center" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-                <div className="text-label-caps text-[9px] font-bold" style={{ color: 'var(--eco-on-surface)' }}>
+              
+              {/* 5,000 steps label (centered) */}
+              <div className="text-center absolute left-[50%] -translate-x-1/2 flex flex-col items-center">
+                <span className="text-label-caps text-[9px] font-bold" style={{ color: 'var(--eco-on-surface)' }}>
                   5,000 STEPS
-                </div>
-                <div className="text-[9px]" style={{ color: 'var(--eco-mrt-teal)' }}>+50 PTS</div>
+                </span>
+                <span className="text-[9px] font-semibold mt-0.5" style={{ color: 'var(--eco-primary)' }}>
+                  +50 PTS
+                </span>
+                {dailySteps >= 5000 && (
+                  <span className="material-symbols-outlined text-[14px] mt-0.5" style={{ color: 'var(--eco-primary)', fontVariationSettings: "'FILL' 1" }}>
+                    check_circle
+                  </span>
+                )}
               </div>
-              <div className="text-right">
-                <div className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
+
+              {/* 10,000 steps label (right aligned) */}
+              <div className="text-right flex flex-col items-end">
+                <span className="text-label-caps text-[9px] font-bold" style={{ color: 'var(--eco-on-surface-variant)' }}>
                   10,000 STEPS
-                </div>
-                <div className="text-[9px]" style={{ color: 'var(--eco-mrt-teal)' }}>+150 PTS</div>
+                </span>
+                <span className="text-[9px] font-semibold mt-0.5" style={{ color: 'var(--eco-primary)' }}>
+                  +150 PTS
+                </span>
               </div>
             </div>
           </div>
 
           {/* Info banner */}
           <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 mt-auto"
             style={{ background: 'var(--eco-info-blue-bg)' }}
           >
             <span className="material-symbols-outlined text-[18px]" style={{ color: 'var(--eco-info-blue-text)' }}>
@@ -237,16 +267,16 @@ export default function RewardsPage() {
             {BADGES.map((badge, i) => (
               <div key={i} className="flex flex-col items-center text-center">
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center mb-1.5"
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-1.5 transition-all"
                   style={{
-                    background: badge.earned ? 'rgba(39, 83, 0, 0.08)' : 'var(--eco-surface-container)',
-                    border: badge.earned ? 'none' : '1px dashed var(--eco-outline-variant)',
+                    background: badge.bgColor,
+                    border: badge.icon === 'add' ? '1.5px dashed var(--eco-outline-variant)' : 'none',
                   }}
                 >
                   <span
-                    className="material-symbols-outlined text-[22px]"
+                    className="material-symbols-outlined text-[24px]"
                     style={{
-                      color: badge.earned ? badge.color : 'var(--eco-outline)',
+                      color: badge.color,
                       fontVariationSettings: badge.earned ? "'FILL' 1" : "'FILL' 0",
                     }}
                   >
@@ -254,7 +284,7 @@ export default function RewardsPage() {
                   </span>
                 </div>
                 {badge.label && (
-                  <span className="text-label-caps text-[8px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
+                  <span className="text-label-caps text-[8px] font-bold mt-1" style={{ color: 'var(--eco-on-surface-variant)' }}>
                     {badge.label}
                   </span>
                 )}
@@ -262,7 +292,7 @@ export default function RewardsPage() {
             ))}
           </div>
           <button
-            className="w-full mt-4 text-label-caps text-[10px] flex items-center justify-center gap-1 py-2 rounded-lg transition-colors"
+            className="w-full mt-4 text-label-caps text-[10px] flex items-center justify-center gap-1 py-2 rounded-lg transition-colors font-bold"
             style={{ color: 'var(--eco-primary)' }}
           >
             VIEW ALL ACHIEVEMENTS
@@ -282,7 +312,7 @@ export default function RewardsPage() {
               <button
                 key={filter}
                 onClick={() => setRewardFilter(filter)}
-                className="px-3 py-1.5 rounded-lg text-label-caps text-[10px] transition-all duration-200"
+                className="px-3 py-1.5 rounded-lg text-label-caps text-[10px] transition-all duration-200 font-bold"
                 style={{
                   background: rewardFilter === filter ? 'var(--eco-on-surface)' : 'transparent',
                   color: rewardFilter === filter ? 'var(--eco-surface)' : 'var(--eco-on-surface-variant)',
@@ -304,8 +334,7 @@ export default function RewardsPage() {
             >
               {/* Colored header area */}
               <div
-                className="relative flex items-center justify-center py-8"
-                style={{ background: reward.bgColor }}
+                className={`relative flex items-center justify-center py-8 ${reward.bgColorClass}`}
               >
                 <span
                   className="material-symbols-outlined text-[40px]"
@@ -315,7 +344,7 @@ export default function RewardsPage() {
                 </span>
                 {reward.tag && (
                   <span
-                    className="absolute bottom-2 right-2 text-label-caps text-[9px] px-2 py-0.5 rounded"
+                    className="absolute bottom-2 right-2 text-label-caps text-[9px] px-2 py-0.5 rounded font-bold"
                     style={{
                       background: 'var(--eco-primary)',
                       color: 'var(--eco-on-primary)',
@@ -343,7 +372,7 @@ export default function RewardsPage() {
                     </span>
                   )}
                   <button
-                    className="text-label-caps text-[10px] px-3 py-1.5 rounded-lg transition-all duration-200"
+                    className="text-label-caps text-[10px] px-3 py-1.5 rounded-lg transition-all duration-200 font-bold"
                     style={{
                       background: reward.locked ? 'var(--eco-surface-container)' : 'var(--eco-primary)',
                       color: reward.locked ? 'var(--eco-on-surface-variant)' : 'var(--eco-on-primary)',

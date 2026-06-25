@@ -37,8 +37,10 @@ export default function LocationInput({
     }
 
     if (inputValue.length < 2) {
-      setResults([]);
-      setShowResults(false);
+      setTimeout(() => {
+        setResults([]);
+        setShowResults(false);
+      }, 0);
       return;
     }
 

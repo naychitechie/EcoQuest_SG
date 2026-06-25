@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Location, RoutesComparison } from '@/lib/types';
 import LocationInput from './LocationInput';
 import RouteCard from './RouteCard';
+import RouteDetails from './RouteDetails';
 import { formatCarbon } from '@/lib/utils';
 
 interface SearchPageProps {
@@ -85,6 +86,23 @@ export default function SearchPage({ onTripSelect }: SearchPageProps) {
         ? comparison.walk
         : comparison.drive
     : null;
+
+  if (comparison) {
+    return (
+      <RouteDetails
+        comparison={comparison}
+        onBack={() => setComparison(null)}
+        onSelectRoute={(mode, duration, savings) => {
+          if (onTripSelect) {
+            const standardMode = (mode === 'MRT' || mode === 'BUS' || mode === 'COMBO') ? 'PT' : (mode === 'CYCLE' || mode === 'WALK') ? 'WALK' : 'DRIVE';
+            onTripSelect(standardMode, comparison.origin, comparison.destination, duration, savings);
+            alert(`Logged your ${mode} commute! Saved ${Math.round(savings)}g CO₂.`);
+            setComparison(null);
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="w-full">
@@ -172,168 +190,8 @@ export default function SearchPage({ onTripSelect }: SearchPageProps) {
         </div>
       </div>
 
-      {/* Results */}
-      {comparison && (
-        <div className="space-y-3">
-          {/* Route Header */}
-          <div
-            className="eco-card flex items-center gap-4"
-          >
-            <div className="flex flex-col items-center">
-              <span className="material-symbols-outlined text-[18px]" style={{ color: 'var(--eco-primary)' }}>
-                trip_origin
-              </span>
-              <div className="h-6 w-px my-1" style={{ background: 'var(--eco-outline-variant)' }} />
-              <span className="material-symbols-outlined text-[18px]" style={{ color: 'var(--eco-error)' }}>
-                location_on
-              </span>
-            </div>
-            <div className="flex-1">
-              <div
-                className="text-data-value pb-2 mb-2"
-                style={{
-                  color: 'var(--eco-on-surface)',
-                  borderBottom: '0.5px solid var(--eco-outline-variant)',
-                }}
-              >
-                {comparison.origin.name}
-              </div>
-              <div className="text-data-value" style={{ color: 'var(--eco-on-surface)' }}>
-                {comparison.destination.name}
-              </div>
-            </div>
-          </div>
-
-          {/* Car Baseline Card */}
-          {comparison.drive && (
-            <div
-              className="rounded-xl p-4"
-              style={{
-                background: 'var(--eco-surface-container)',
-                border: '0.5px solid var(--eco-outline-variant)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ color: 'var(--eco-on-surface-variant)' }}
-                  >
-                    directions_car
-                  </span>
-                  <span className="text-headline-sm text-[14px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                    Car Baseline
-                  </span>
-                </div>
-                <span className="text-data-value" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                  ~{Math.round(comparison.drive.totalDuration)} min
-                </span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-label-caps" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                    CO₂ EMISSIONS
-                  </span>
-                  <span className="text-data-value" style={{ color: 'var(--eco-error)' }}>
-                    {formatCarbon(comparison.drive.carbonEmissions)}
-                  </span>
-                </div>
-                <div
-                  className="w-full h-2 rounded-full"
-                  style={{ background: 'var(--eco-surface-dim)' }}
-                >
-                  <div
-                    className="h-2 rounded-full"
-                    style={{ width: '100%', background: 'var(--eco-error)' }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Route Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-gap-md mb-section-divider">
-            <RouteCard
-              route={comparison.pt}
-              mode="PT"
-              isSelected={selectedMode === 'PT'}
-              isBest={comparison.bestOption === 'PT'}
-              onClick={() => handleSelectRoute('PT')}
-              carbonSavings={comparison.carbonSavings.vsDrive}
-              carBaselineEmissions={carBaseline}
-              onSelect={() => handleSelectRoute('PT')}
-            />
-            <RouteCard
-              route={comparison.walk}
-              mode="WALK"
-              isSelected={selectedMode === 'WALK'}
-              isBest={comparison.bestOption === 'WALK'}
-              onClick={() => handleSelectRoute('WALK')}
-              carbonSavings={comparison.carbonSavings.walkVsDrive}
-              carBaselineEmissions={carBaseline}
-              onSelect={() => handleSelectRoute('WALK')}
-            />
-            <RouteCard
-              route={comparison.drive}
-              mode="DRIVE"
-              isSelected={selectedMode === 'DRIVE'}
-              isBest={comparison.bestOption === 'DRIVE'}
-              onClick={() => handleSelectRoute('DRIVE')}
-              carBaselineEmissions={carBaseline}
-              onSelect={() => handleSelectRoute('DRIVE')}
-            />
-          </div>
-
-          {/* Map */}
-          {selectedRoute && (
-            <div className="mt-4">
-              <MapView
-                origin={comparison.origin}
-                destination={comparison.destination}
-                route={selectedRoute}
-              />
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-// Lazy-loaded map component
-import dynamic from 'next/dynamic';
-const RouteMapDynamic = dynamic(() => import('@/components/RouteMap'), {
-  ssr: false,
-  loading: () => (
-    <div
-      className="w-full rounded-xl flex items-center justify-center"
-      style={{
-        height: '400px',
-        background: 'var(--eco-surface-container)',
-        border: '0.5px solid var(--eco-outline-variant)',
-      }}
-    >
-      <span className="material-symbols-outlined animate-spin text-[24px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-        progress_activity
-      </span>
-    </div>
-  ),
-});
 
-function MapView({
-  origin,
-  destination,
-  route,
-}: {
-  origin: Location;
-  destination: Location;
-  route: { mode: string; routeGeometry?: string; legGeometries?: string[]; steps: Array<{ mode: string }> };
-}) {
-  return (
-    <RouteMapDynamic
-      origin={origin}
-      destination={destination}
-      route={route as Parameters<typeof RouteMapDynamic>[0]['route']}
-    />
-  );
-}

@@ -77,7 +77,7 @@ export default function HomePanels({ trips = [] }: { trips?: Trip[] }) {
             </div>
 
             <p className="text-[13px]" style={{ color: 'var(--eco-on-surface-variant)', marginBottom: '10px' }}>
-              Together, EcoCommute users have saved the equivalent of planting {Math.round(treeDays * 450)} trees today.
+              Together, GreenRoute users have saved the equivalent of planting {Math.round(treeDays * 450)} trees today.
             </p>
 
             <div className="w-full h-3 rounded-full mt-2" style={{ background: 'rgba(34,197,94,0.12)' }}>

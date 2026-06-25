@@ -208,9 +208,7 @@ export async function POST(request: NextRequest) {
     const bestOption = candidates.length > 0 ? candidates[0].key : 'PT';
 
     // Calculate savings vs driving
-    const drivingEmissions = driveRoute
-      ? driveRoute.carbonEmissions
-      : (driveRoute?.totalDistance || 0) * CARBON_FACTORS.CAR;
+    const drivingEmissions = driveRoute ? driveRoute.carbonEmissions : 0;
 
     const comparison: RoutesComparison = {
       origin,

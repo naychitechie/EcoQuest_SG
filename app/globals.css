@@ -207,3 +207,72 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--eco-outline);
 }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Custom Card Pattern Backgrounds                              */
+/* ═══════════════════════════════════════════════════════════════ */
+.pattern-dots-blue {
+  background-color: #EEEDFE;
+  background-image: radial-gradient(#3C3489 12%, transparent 12%), radial-gradient(#3C3489 12%, transparent 12%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
+.pattern-dots-peach {
+  background-color: #FAEEDA;
+  background-image: radial-gradient(#862a00 12%, transparent 12%), radial-gradient(#862a00 12%, transparent 12%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
+.pattern-dots-mint {
+  background-color: #E1F5EE;
+  background-image: radial-gradient(#085041 12%, transparent 12%), radial-gradient(#085041 12%, transparent 12%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
+.pattern-dots-grey {
+  background-color: #f0eee7;
+  background-image: radial-gradient(#727969 12%, transparent 12%), radial-gradient(#727969 12%, transparent 12%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Dark Mode Variable Overrides                                 */
+/* ═══════════════════════════════════════════════════════════════ */
+.dark {
+  --eco-surface: #141512;
+  --eco-surface-dim: #10110e;
+  --eco-surface-bright: #2d2e29;
+  --eco-surface-container-lowest: #0c0d0a;
+  --eco-surface-container-low: #1b1c18;
+  --eco-surface-container: #22231e;
+  --eco-surface-container-high: #2d2e29;
+  --eco-surface-container-highest: #373933;
+  --eco-on-surface: #e4e2dc;
+  --eco-on-surface-variant: #c2c9b7;
+  --eco-outline: #8c9382;
+  --eco-outline-variant: #42493b;
+  --eco-primary: #9dd770;
+  --eco-on-primary: #0c2000;
+  --eco-primary-container: #265100;
+  --eco-on-primary-container: #b8f389;
+  --eco-secondary: #9dcaff;
+  --eco-on-secondary: #003258;
+  --eco-secondary-container: #00497c;
+  --eco-on-secondary-container: #d1e4ff;
+  --eco-tertiary: #ffb59b;
+  --eco-on-tertiary: #5c1900;
+  --eco-tertiary-container: #812800;
+  --eco-on-tertiary-container: #ffdbcf;
+  --eco-background: #141512;
+  --eco-on-background: #e4e2dc;
+}
+
+.dark html, .dark body {
+  background-color: #141512;
+  color: #e4e2dc;
+}
+

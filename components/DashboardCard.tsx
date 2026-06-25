@@ -10,29 +10,23 @@ interface DashboardCardProps {
 }
 
 export default function DashboardCard({ trips: propTrips }: DashboardCardProps) {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [totalCarbonSaved, setTotalCarbonSaved] = useState(0);
+  const [localTrips, setLocalTrips] = useState<Trip[]>([]);
 
   useEffect(() => {
-    // Use prop trips if available, otherwise load from localStorage
-    if (propTrips && propTrips.length > 0) {
-      setTrips(propTrips);
-      const total = propTrips.reduce((sum, trip) => sum + trip.carbonSaved, 0);
-      setTotalCarbonSaved(total);
-    } else {
+    if (!propTrips || propTrips.length === 0) {
       const stored = localStorage.getItem(STORAGE_KEYS.TRIPS);
       if (stored) {
         try {
-          const parsedTrips: Trip[] = JSON.parse(stored);
-          setTrips(parsedTrips);
-          const total = parsedTrips.reduce((sum, trip) => sum + (trip.carbonSaved || 0), 0);
-          setTotalCarbonSaved(total);
+          setLocalTrips(JSON.parse(stored));
         } catch {
-          // Invalid JSON, ignore
+          // Ignore
         }
       }
     }
   }, [propTrips]);
+
+  const trips = propTrips && propTrips.length > 0 ? propTrips : localTrips;
+  const totalCarbonSaved = trips.reduce((sum, trip) => sum + (trip.carbonSaved || 0), 0);
 
   const treeDays = carbonsToTreeDays(totalCarbonSaved);
   const totalWalkKm = trips
