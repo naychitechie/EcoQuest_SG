@@ -1,3 +1,20 @@
+# EcoQuest SG 🇸🇬
+
+**EcoQuest SG** is an adaptive sustainability platform and gamified mobility agent that transforms raw public transit utilities into a holistic behavior-change ecosystem. 
+
+Unlike generic carbon footprint calculators that rely on Western approximations, EcoQuest SG interfaces directly with Singapore's official data infrastructure to drive real-world habit formation across three core pillars: **Transport, Food, and Energy**.
+
+### 🚀 Key Features
+* **Deterministic Verification Loop:** A privacy-first, sensor-free transit tracker that validates user arrivals by cross-referencing one-off geofenced pings with live LTA schedules—eliminating heavy background battery drain.
+* **Cross-Category Adaptive Agent:** An intelligent nudge engine that adapts tomorrow's task difficulties based on today's habit compliance (e.g., tracking an MRT walk dynamically calibrates a local plant-based food nudge and scales down your home energy saving targets).
+* **Gamified Ecosystem:** Built-in streak mechanics and "Streak Coin" rewards to incentivize eco-conscious commuting and align with the Singapore Green Plan.
+
+### 🛠️ Production Infrastructure
+* **SLA OneMap API:** Geocoding, reverse-geocoding, and hyper-local routing vectors.
+* **LTA Datamall:** Real-time bus arrivals (v2 JSON parameters for seating loads) and automated train service alerts.
+* **Tailwind CSS:** Premium, presentation-ready dark mode UI designed explicitly for mobile view emulation.
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
