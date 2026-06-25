@@ -24,14 +24,21 @@ export const STORAGE_KEYS = {
   CARBON_SAVED: 'greenroute_carbon_saved',
   RECENT_LOCATIONS: 'greenroute_recent_locations',
   COMMUTE_LOCK: 'ecoquest_commute_lock',
+  USER_STATS: 'ecoquest_user_stats',
+  RECENT_ROUTES: 'ecoquest_recent_routes',
 };
 
 export type CommuteLockState = 'idle' | 'in_transit' | 'complete';
+
+export type CommuteMode = 'MRT' | 'BUS' | 'WALK';
 
 export interface CommuteLockData {
   state: CommuteLockState;
   destination: string;
   etaMinutes: number;
+  origin?: { name: string; lat: number; lng: number };
+  destinationLocation?: { name: string; lat: number; lng: number };
+  mode?: CommuteMode;
 }
 
 export const DEFAULT_COMMUTE_LOCK: CommuteLockData = {
@@ -39,3 +46,27 @@ export const DEFAULT_COMMUTE_LOCK: CommuteLockData = {
   destination: 'Raffles Place Stn',
   etaMinutes: 18,
 };
+
+export interface UserStats {
+  co2SavedKg: number;
+  co2SavedTodayKg: number;
+  greenCommutes: number;
+  greenCommutesTarget: number;
+  streakCoins: number;
+}
+
+export const DEFAULT_USER_STATS: UserStats = {
+  co2SavedKg: 4.8,
+  co2SavedTodayKg: 1.2,
+  greenCommutes: 12,
+  greenCommutesTarget: 15,
+  streakCoins: 340,
+};
+
+export interface RecentRoute {
+  id: string;
+  origin: { name: string; lat: number; lng: number };
+  destination: { name: string; lat: number; lng: number };
+  mode: CommuteMode;
+  timestamp: number;
+}
