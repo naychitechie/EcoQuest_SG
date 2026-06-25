@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GreenRoute - Carbon-Aware Commute Planner for Singapore",
+  title: "EcoQuest SG - Carbon-Aware Commute Planner for Singapore",
   description:
     "Plan your commute by carbon emissions. Compare MRT, Bus, Walk, and Car routes with real-time data from LTA and OneMap.",
   keywords: [
@@ -35,7 +35,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Courier+Prime&display=swap"
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full antialiased">{children}</body>
     </html>
   );
 }

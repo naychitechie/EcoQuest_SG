@@ -15,11 +15,13 @@ interface RouteDetailsProps {
     duration: number,
     carbonSavings: number
   ) => void;
+  onStartCommute?: (destination: string, etaMinutes: number) => void;
+  commuteLocked?: boolean;
 }
 
 type ModeType = 'MRT' | 'BUS' | 'WALK' | 'CYCLE' | 'COMBO';
 
-export default function RouteDetails({ comparison, onBack, onSelectRoute }: RouteDetailsProps) {
+export default function RouteDetails({ comparison, onBack, onSelectRoute, onStartCommute, commuteLocked }: RouteDetailsProps) {
   const [selectedMode, setSelectedMode] = useState<ModeType>('MRT');
   const [showMap, setShowMap] = useState(false);
 
@@ -176,416 +178,130 @@ export default function RouteDetails({ comparison, onBack, onSelectRoute }: Rout
     }
   };
 
+  const allModes: ModeType[] = ['MRT', 'BUS', 'WALK', 'CYCLE', 'COMBO'];
+
+  const renderCompactCard = (key: ModeType) => {
+    const opt = options[key];
+    const isSelected = selectedMode === key;
+
+    return (
+      <div
+        key={key}
+        onClick={() => setSelectedMode(key)}
+        className={`p-3 bg-slate-900/60 border rounded-xl flex flex-col gap-2 cursor-pointer transition-all ${
+          isSelected ? 'border-emerald-500/60' : 'border-slate-800/80'
+        } ${opt.isGreenest ? 'ring-1 ring-emerald-500/30' : ''}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="material-symbols-outlined text-[18px] text-emerald-400 shrink-0">
+              {opt.icon}
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-white truncate">
+                {opt.label}
+                {opt.badge && (
+                  <span className="ml-1.5 text-[10px] font-bold text-white/80 bg-slate-700 px-1.5 py-0.5 rounded">
+                    {opt.badge}
+                  </span>
+                )}
+              </h3>
+              <p className="text-[11px] text-slate-400 truncate">{opt.badgeText}</p>
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-xs text-emerald-400 font-bold">{opt.timeStr}</div>
+            <div className="text-[11px] text-slate-400">{formatFare(opt.fare)}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] text-slate-400">
+          <span>{opt.distance} km · {opt.emissionsPerKm} g/km CO₂</span>
+          {opt.isGreenest && (
+            <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>eco</span>
+              Greenest
+            </span>
+          )}
+          {opt.isEcoChoice && (
+            <span className="text-emerald-400 font-semibold">Eco Choice</span>
+          )}
+        </div>
+
+        {key === 'MRT' && opt.isGreenest && onStartCommute && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!commuteLocked) {
+                const destLabel = comparison.destination.name
+                  .replace(/\s+MRT Station$/i, ' Stn')
+                  .replace(/\s+Station$/i, ' Stn');
+                onStartCommute(destLabel, 18);
+              }
+            }}
+            disabled={commuteLocked}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold py-2 rounded-xl transition-all shadow-md mt-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            START COMMUTE
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="w-full">
-      {/* ── Page Header & Back Button ───────────────────────────────── */}
-      <div className="flex items-center gap-3 mb-6">
+    <div className="w-full min-w-0 py-2">
+      {/* Back + header */}
+      <div className="flex items-center gap-2 mb-3">
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-full flex items-center justify-center border transition-all hover:bg-[var(--eco-surface-container)] cursor-pointer"
-          style={{ borderColor: 'var(--eco-outline-variant)', background: 'var(--eco-surface-container-lowest)' }}
+          className="w-8 h-8 rounded-full flex items-center justify-center border border-slate-800 bg-slate-900/80 text-white"
         >
-          <span className="material-symbols-outlined text-[20px] font-bold">arrow_back</span>
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
         </button>
-        <h1 className="text-headline-lg" style={{ color: 'var(--eco-on-surface)' }}>
-          Route Details
-        </h1>
+        <h1 className="text-sm font-bold text-white">Route Results</h1>
       </div>
 
-      {/* ── Trip Overview Card ───────────────────────────────────────── */}
-      <div className="eco-card mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        {/* Route visualization chain */}
-        <div className="flex items-center gap-4 flex-1">
-          <div className="flex flex-col items-center shrink-0">
-            <div className="w-5 h-5 rounded-full border-2 border-[var(--eco-primary)] flex items-center justify-center bg-white">
-              <div className="w-2 h-2 rounded-full bg-[var(--eco-primary)]" />
-            </div>
-            <div className="h-6 w-0.5 my-1" style={{ borderLeft: '2px dashed var(--eco-outline-variant)' }} />
-            <span className="material-symbols-outlined text-[20px] font-semibold" style={{ color: 'var(--eco-error)' }}>
-              location_on
-            </span>
-          </div>
-
-          <div className="flex-1 space-y-3">
-            <div className="text-data-value text-[14px] font-semibold" style={{ color: 'var(--eco-on-surface)' }}>
-              {comparison.origin.name}
-            </div>
-            <div className="text-data-value text-[14px] font-semibold" style={{ color: 'var(--eco-on-surface)' }}>
-              {comparison.destination.name}
-            </div>
-          </div>
+      {/* Trip summary — compact */}
+      <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl mb-3 space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[14px] text-emerald-400">trip_origin</span>
+          <span className="text-xs text-white truncate">{comparison.origin.name}</span>
         </div>
-
-        {/* Departure & Date Info */}
-        <div className="flex gap-6 md:text-right md:border-l md:pl-8 md:h-12 items-center" style={{ borderColor: 'var(--eco-outline-variant)' }}>
-          <div>
-            <div className="text-label-caps text-[9px] tracking-wider" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>
-              DEPARTURE
-            </div>
-            <div className="text-[14px] font-bold" style={{ color: 'var(--eco-on-surface)' }}>
-              08:30 AM
-            </div>
-          </div>
-          <div>
-            <div className="text-label-caps text-[9px] tracking-wider" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>
-              DATE
-            </div>
-            <div className="text-[14px] font-bold" style={{ color: 'var(--eco-on-surface)' }}>
-              Today
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[14px] text-red-400">location_on</span>
+          <span className="text-xs text-white truncate">{comparison.destination.name}</span>
+        </div>
+        <div className="flex justify-between pt-1 text-[11px] text-slate-400">
+          <span>Car baseline ~{Math.round(carDuration)} min</span>
+          <span>147 g/km CO₂</span>
         </div>
       </div>
 
-      {/* ── Car Baseline Card ────────────────────────────────────────── */}
-      <div
-        className="rounded-2xl p-5 mb-6 border"
-        style={{
-          background: 'var(--eco-surface-container)',
-          borderColor: 'var(--eco-outline-variant)',
-        }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[22px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-              directions_car
-            </span>
-            <span className="text-[15px] font-bold" style={{ color: 'var(--eco-on-surface-variant)' }}>
-              Car Baseline
-            </span>
-          </div>
-          <span className="text-[14px] font-bold" style={{ color: 'var(--eco-on-surface-variant)' }}>
-            ~{Math.round(carDuration)} min
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-[12px]">
-            <span className="text-label-caps tracking-wider" style={{ color: 'var(--eco-on-surface-variant)' }}>
-              CO2 EMISSIONS
-            </span>
-            <span className="font-bold" style={{ color: 'var(--eco-error)' }}>
-              147 g/km
-            </span>
-          </div>
-          {/* Carbon Progress Bar (Red/Car baseline) */}
-          <div className="w-full h-3 rounded-full bg-[var(--eco-surface-dim)] overflow-hidden">
-            <div className="h-full rounded-full bg-[var(--eco-error)]" style={{ width: '100%' }} />
-          </div>
-        </div>
+      {/* Route options — vertical stack */}
+      <div className="flex flex-col gap-2 py-2">
+        {allModes.map(renderCompactCard)}
       </div>
 
-      {/* ── Route Options Grid ── Top Row: MRT, Bus, Walking ────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {(['MRT', 'BUS', 'WALK'] as ModeType[]).map((key) => {
-          const opt = options[key];
-          const isSelected = selectedMode === key;
-
-          const ems = opt.emissionsPerKm * opt.distance;
-          const barWidth = Math.min(100, Math.max(2, (ems / carEmissions) * 100));
-
-          let borderStyle = '0.5px solid var(--eco-outline-variant)';
-          let bgStyle = 'var(--eco-surface-container-lowest)';
-
-          if (isSelected) {
-            bgStyle = 'var(--eco-surface-container-low)';
-            if (opt.isGreenest) borderStyle = '2px solid var(--eco-primary)';
-            else if (opt.isEcoChoice) borderStyle = '2px solid var(--eco-primary)';
-            else borderStyle = '2px solid var(--eco-secondary)';
-          }
-
-          return (
-            <div
-              key={key}
-              onClick={() => setSelectedMode(key)}
-              className="eco-card transition-all duration-200 cursor-pointer flex flex-col relative overflow-hidden h-full group hover:shadow-md"
-              style={{
-                border: borderStyle,
-                background: bgStyle,
-                padding: '16px 20px',
-              }}
-            >
-              {/* Greenest/Eco Badge */}
-              {opt.isGreenest && (
-                <div
-                  className="absolute top-0 right-0 text-[10px] px-3 py-1 rounded-bl-xl font-bold flex items-center gap-1"
-                  style={{
-                    background: 'var(--eco-success-mint-bg)',
-                    color: 'var(--eco-success-mint-text)',
-                  }}
-                >
-                  <span className="material-symbols-outlined text-[12px] font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>eco</span>
-                  Greenest Choice
-                </div>
-              )}
-              {opt.isEcoChoice && (
-                <div
-                  className="absolute top-0 right-0 text-[10px] px-3 py-1 rounded-bl-xl font-bold flex items-center gap-1 text-white"
-                  style={{
-                    background: 'var(--eco-primary)',
-                  }}
-                >
-                  <span className="material-symbols-outlined text-[12px] font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-                  Eco Choice
-                </div>
-              )}
-
-              {/* Title & Icons */}
-              <div className="flex items-center justify-between gap-3 mb-4" style={{ marginTop: (opt.isGreenest || opt.isEcoChoice) ? '8px' : '0' }}>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: opt.iconBg, color: opt.iconColor }}
-                  >
-                    <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
-                  </div>
-                  <div>
-                    <h3 className="text-[16px] font-bold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
-                      {opt.label}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {opt.badge && (
-                        <span
-                          className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
-                          style={{ background: opt.badgeColor }}
-                        >
-                          {opt.badge}
-                        </span>
-                      )}
-                      <span className="text-[11px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                        {opt.badgeText}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {/* External Maps Actionable Trigger Link */}
-                <a
-                  href={opt.mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-8 h-8 rounded-full border border-[var(--eco-outline-variant)] flex items-center justify-center transition-all bg-[var(--eco-surface-container-lowest)] hover:bg-[var(--eco-surface-container-high)] overflow-hidden shrink-0 mt-[12px]"
-                  title={`Open ${opt.label} route in Google Maps`}
-                >
-                  <img
-                    src="/icons/google-map-icon.png"
-                    alt="Google Maps"
-                    className="w-[18px] h-[18px] object-contain"
-                  />
-                </a>
-              </div>
-
-              {/* Card Metrics */}
-              <div className="space-y-2 mt-auto">
-                {/* Travel Time */}
-                <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>
-                    TRAVEL TIME
-                  </span>
-                  <span className="text-[15px] font-bold" style={{ color: opt.isGreenest || opt.isEcoChoice ? 'var(--eco-primary)' : 'var(--eco-on-surface)' }}>
-                    {opt.timeStr}
-                  </span>
-                </div>
-
-                {/* Distance */}
-                <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>
-                    DISTANCE
-                  </span>
-                  <span className="text-[13px] font-semibold" style={{ color: 'var(--eco-on-surface)' }}>
-                    {opt.distance} km
-                  </span>
-                </div>
-
-                {/* Est. Fare */}
-                <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>
-                    EST. FARE
-                  </span>
-                  <span className="text-[13px] font-semibold" style={{ color: 'var(--eco-on-surface)' }}>
-                    {formatFare(opt.fare)}
-                  </span>
-                </div>
-
-                {/* CO2 emissions row */}
-                <div className="flex justify-between items-center pt-1">
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>
-                    CO2 EMISSIONS
-                  </span>
-                  <span className="text-[12px] font-bold" style={{ color: opt.emissionsPerKm > 0 ? 'var(--eco-on-surface)' : 'var(--eco-primary)' }}>
-                    {opt.emissionsPerKm} g/km
-                  </span>
-                </div>
-
-                {/* Emissions Progress Bar */}
-                <div className="w-full h-1.5 rounded-full bg-[var(--eco-surface-dim)] overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${barWidth}%`,
-                      background: opt.emissionsPerKm > 10 ? 'var(--eco-tertiary)' : 'var(--eco-primary)'
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Route Options Grid ── Bottom Row: Cycling, Eco Combo ──────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 md:max-w-[calc(66.7%_+_8px)]">
-        {(['CYCLE', 'COMBO'] as ModeType[]).map((key) => {
-          const opt = options[key];
-          const isSelected = selectedMode === key;
-
-          const ems = opt.emissionsPerKm * opt.distance;
-          const barWidth = Math.min(100, Math.max(2, (ems / carEmissions) * 100));
-
-          let borderStyle = '0.5px solid var(--eco-outline-variant)';
-          let bgStyle = 'var(--eco-surface-container-lowest)';
-
-          if (isSelected) {
-            bgStyle = 'var(--eco-surface-container-low)';
-            if (opt.isGreenest) borderStyle = '2px solid var(--eco-primary)';
-            else if (opt.isEcoChoice) borderStyle = '2px solid var(--eco-primary)';
-            else borderStyle = '2px solid var(--eco-secondary)';
-          }
-
-          return (
-            <div
-              key={key}
-              onClick={() => setSelectedMode(key)}
-              className="eco-card transition-all duration-200 cursor-pointer flex flex-col relative overflow-hidden h-full group hover:shadow-md"
-              style={{
-                border: borderStyle,
-                background: bgStyle,
-                padding: '16px 20px',
-              }}
-            >
-              {opt.isGreenest && (
-                <div
-                  className="absolute top-0 right-0 text-[10px] px-3 py-1 rounded-bl-xl font-bold flex items-center gap-1"
-                  style={{
-                    background: 'var(--eco-success-mint-bg)',
-                    color: 'var(--eco-success-mint-text)',
-                  }}
-                >
-                  <span className="material-symbols-outlined text-[12px] font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>eco</span>
-                  Greenest Choice
-                </div>
-              )}
-              {opt.isEcoChoice && (
-                <div
-                  className="absolute top-0 right-0 text-[10px] px-3 py-1 rounded-bl-xl font-bold flex items-center gap-1 text-white"
-                  style={{
-                    background: 'var(--eco-primary)',
-                  }}
-                >
-                  <span className="material-symbols-outlined text-[12px] font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-                  Eco Choice
-                </div>
-              )}
-              <div className="flex items-center justify-between gap-3 mb-4" style={{ marginTop: (opt.isGreenest || opt.isEcoChoice) ? '8px' : '0' }}>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: opt.iconBg, color: opt.iconColor }}
-                  >
-                    <span className="material-symbols-outlined text-[22px]">{opt.icon}</span>
-                  </div>
-                  <div>
-                    <h3 className="text-[16px] font-bold font-heading" style={{ color: 'var(--eco-on-surface)' }}>
-                      {opt.label}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {opt.badge && (
-                        <span
-                          className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded"
-                          style={{ background: opt.badgeColor }}
-                        >
-                          {opt.badge}
-                        </span>
-                      )}
-                      <span className="text-[11px]" style={{ color: 'var(--eco-on-surface-variant)' }}>
-                        {opt.badgeText}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* External Maps Actionable Trigger Link */}
-                <a
-                  href={opt.mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-8 h-8 rounded-full border border-[var(--eco-outline-variant)] flex items-center justify-center transition-all bg-[var(--eco-surface-container-lowest)] hover:bg-[var(--eco-surface-container-high)] overflow-hidden shrink-0 mt-[12px]"
-                  title={`Open ${opt.label} route in Google Maps`}
-                >
-                  <img
-                    src="/icons/google-map-icon.png"
-                    alt="Google Maps"
-                    className="w-[18px] h-[18px] object-contain"
-                  />
-                </a>
-              </div>
-              <div className="space-y-2 mt-auto">
-                <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>TRAVEL TIME</span>
-                  <span className="text-[15px] font-bold" style={{ color: opt.isGreenest || opt.isEcoChoice ? 'var(--eco-primary)' : 'var(--eco-on-surface)' }}>{opt.timeStr}</span>
-                </div>
-                <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>DISTANCE</span>
-                  <span className="text-[13px] font-semibold" style={{ color: 'var(--eco-on-surface)' }}>{opt.distance} km</span>
-                </div>
-                <div className="flex justify-between items-end pb-1" style={{ borderBottom: '0.5px solid var(--eco-outline-variant)' }}>
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>EST. FARE</span>
-                  <span className="text-[13px] font-semibold" style={{ color: 'var(--eco-on-surface)' }}>{formatFare(opt.fare)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-1">
-                  <span className="text-label-caps text-[9px]" style={{ color: 'var(--eco-on-surface-variant)', opacity: 0.8 }}>CO2 EMISSIONS</span>
-                  <span className="text-[12px] font-bold" style={{ color: opt.emissionsPerKm > 0 ? 'var(--eco-on-surface)' : 'var(--eco-primary)' }}>{opt.emissionsPerKm} g/km</span>
-                </div>
-                <div className="w-full h-1.5 rounded-full bg-[var(--eco-surface-dim)] overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${barWidth}%`, background: opt.emissionsPerKm > 10 ? 'var(--eco-tertiary)' : 'var(--eco-primary)' }} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Select Route Button ──────────────────────────────────────── */}
-      <div className="flex justify-end mb-6">
+      {/* Save route + map toggle */}
+      <div className="flex flex-col gap-2 mt-3 pb-4">
         <button
           onClick={handleSelectClick}
-          className="text-label-caps text-[12px] font-bold px-6 py-3 rounded-xl shrink-0 transition-all hover:opacity-95 shadow-sm cursor-pointer"
-          style={{ background: 'var(--eco-primary)', color: 'var(--eco-on-primary)' }}
+          className="w-full py-2 rounded-xl text-xs font-bold uppercase bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
         >
-          Save {activeOption.label.toUpperCase()} ROUTE
+          Save {activeOption.label} Route
         </button>
-      </div>
-
-      {/* ── Toggle Map Panel (Premium Functional Addition) ────────── */}
-      <div className="flex justify-center mb-6">
         <button
           onClick={() => setShowMap(!showMap)}
-          className="flex items-center gap-2 text-[12px] font-bold py-2.5 px-5 rounded-xl border transition-all hover:bg-[var(--eco-surface-container-low)] cursor-pointer"
-          style={{
-            borderColor: 'var(--eco-outline-variant)',
-            background: 'var(--eco-surface-container-lowest)',
-            color: 'var(--eco-on-surface)',
-          }}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900/60 text-slate-300"
         >
-          <span className="material-symbols-outlined text-[18px]">{showMap ? 'map_off' : 'map'}</span>
-          {showMap ? 'HIDE ROUTE MAP' : 'SHOW ROUTE MAP'}
+          <span className="material-symbols-outlined text-[16px]">{showMap ? 'map_off' : 'map'}</span>
+          {showMap ? 'Hide Route Map' : 'Show Route Map'}
         </button>
       </div>
 
-      {/* Collapsible leaflet map container */}
       {showMap && activeOption.rawRoute && (
-        <div className="mb-8 animate-fadeIn">
+        <div className="mb-4 animate-fadeIn">
           <RouteMap
             origin={comparison.origin}
             destination={comparison.destination}

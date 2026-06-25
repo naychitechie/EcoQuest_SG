@@ -23,4 +23,19 @@ export const STORAGE_KEYS = {
   TRIPS: 'greenroute_trips',
   CARBON_SAVED: 'greenroute_carbon_saved',
   RECENT_LOCATIONS: 'greenroute_recent_locations',
+  COMMUTE_LOCK: 'ecoquest_commute_lock',
+};
+
+export type CommuteLockState = 'idle' | 'in_transit' | 'complete';
+
+export interface CommuteLockData {
+  state: CommuteLockState;
+  destination: string;
+  etaMinutes: number;
+}
+
+export const DEFAULT_COMMUTE_LOCK: CommuteLockData = {
+  state: 'idle',
+  destination: 'Raffles Place Stn',
+  etaMinutes: 18,
 };
