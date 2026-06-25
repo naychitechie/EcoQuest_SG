@@ -1,34 +1,38 @@
 'use client';
 
-import { useState } from 'react';
 import { Trip } from '@/lib/types';
 import { formatCarbon } from '@/lib/utils';
-import { STORAGE_KEYS } from '@/lib/constants';
+import { UserStats } from '@/lib/constants';
 
 interface DashboardCardProps {
+  userStats: UserStats;
+  pendingCoins?: number;
   trips?: Trip[];
   extended?: boolean;
 }
 
-function ImpactStatsGrid() {
+function ImpactStatsGrid({ userStats, pendingCoins = 0 }: { userStats: UserStats; pendingCoins?: number }) {
   const metrics = [
     {
       label: 'CO₂ Saved',
-      value: '4.8 kg',
-      subtext: '+1.2 kg today',
+      value: `${userStats.co2SavedKg.toFixed(1)} kg`,
+      subtext:
+        userStats.co2SavedTodayKg > 0
+          ? `+${userStats.co2SavedTodayKg.toFixed(1)} kg today`
+          : 'No gains today',
       subtextClass: 'text-emerald-400',
     },
     {
       label: 'Green Commutes',
-      value: '12 / 15',
+      value: `${userStats.greenCommutes} / ${userStats.greenCommutesTarget}`,
       subtext: 'Target: Tier 2',
       subtextClass: 'text-slate-400',
     },
     {
       label: 'Streak Coins',
-      value: '340',
-      subtext: '+50 Pending',
-      subtextClass: 'text-amber-400',
+      value: String(userStats.streakCoins),
+      subtext: pendingCoins > 0 ? `+${pendingCoins} Pending` : 'Balance updated',
+      subtextClass: pendingCoins > 0 ? 'text-amber-400' : 'text-slate-400',
     },
   ];
 
@@ -47,18 +51,13 @@ function ImpactStatsGrid() {
   );
 }
 
-export default function DashboardCard({ trips: propTrips, extended = false }: DashboardCardProps) {
-  const [localTrips] = useState<Trip[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TRIPS);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const trips = propTrips && propTrips.length > 0 ? propTrips : localTrips;
+export default function DashboardCard({
+  userStats,
+  pendingCoins = 0,
+  trips: propTrips,
+  extended = false,
+}: DashboardCardProps) {
+  const trips = propTrips ?? [];
   const totalCarbonSaved = trips.reduce((sum, trip) => sum + (trip.carbonSaved || 0), 0);
   const totalWalkKm = trips
     .filter((t) => t.mode === 'WALK')
@@ -79,7 +78,7 @@ export default function DashboardCard({ trips: propTrips, extended = false }: Da
 
   return (
     <div className="space-y-4">
-      <ImpactStatsGrid />
+      <ImpactStatsGrid userStats={userStats} pendingCoins={pendingCoins} />
 
       {extended && (
         <>

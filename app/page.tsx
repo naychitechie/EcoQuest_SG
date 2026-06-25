@@ -13,7 +13,17 @@ import {
   STORAGE_KEYS,
   DEFAULT_COMMUTE_LOCK,
   CommuteLockData,
+  UserStats,
+  RecentRoute,
+  CommuteMode,
 } from '@/lib/constants';
+import {
+  readUserStats,
+  writeUserStats,
+  readRecentRoutes,
+  writeRecentRoutes,
+  COMMUTE_REWARD,
+} from '@/lib/userStats';
 
 // ─── Commute lock localStorage helpers ───────────────────────────────────────
 
@@ -52,14 +62,14 @@ interface RouteOption {
   isRecommended: boolean;
 }
 
-function buildRouteOptions(comparison: RoutesComparison): RouteOption[] {
+function buildRouteOptions(comparison: RoutesComparison, preferredMode?: RouteOptionKey): RouteOption[] {
   const ptRoute = comparison.pt;
   const walkRoute = comparison.walk;
   const driveRoute = comparison.drive;
   const carDistance = driveRoute ? driveRoute.totalDistance : 15.8;
   const carDuration = driveRoute ? driveRoute.totalDuration : 25;
 
-  return [
+  const options: RouteOption[] = [
     {
       key: 'MRT',
       label: 'MRT',
@@ -70,7 +80,7 @@ function buildRouteOptions(comparison: RoutesComparison): RouteOption[] {
       distance: Number((ptRoute ? ptRoute.totalDistance : carDistance * 1.05).toFixed(1)),
       fare: ptRoute && ptRoute.totalFare > 0 ? ptRoute.totalFare : 1.84,
       emissionsPerKm: 4,
-      isRecommended: true,
+      isRecommended: preferredMode ? preferredMode === 'MRT' : true,
     },
     {
       key: 'BUS',
@@ -82,7 +92,7 @@ function buildRouteOptions(comparison: RoutesComparison): RouteOption[] {
       distance: Number((ptRoute ? ptRoute.totalDistance * 1.02 : carDistance * 1.1).toFixed(1)),
       fare: ptRoute && ptRoute.totalFare > 0 ? ptRoute.totalFare + 0.26 : 2.1,
       emissionsPerKm: 25,
-      isRecommended: false,
+      isRecommended: preferredMode === 'BUS',
     },
     {
       key: 'WALK',
@@ -98,9 +108,17 @@ function buildRouteOptions(comparison: RoutesComparison): RouteOption[] {
       distance: Number((walkRoute ? walkRoute.totalDistance : carDistance).toFixed(1)),
       fare: 0,
       emissionsPerKm: 0,
-      isRecommended: false,
+      isRecommended: preferredMode === 'WALK',
     },
   ];
+
+  if (!preferredMode) {
+    options[0].isRecommended = true;
+    options[1].isRecommended = false;
+    options[2].isRecommended = false;
+  }
+
+  return options;
 }
 
 // ─── Route result card (defined in page.tsx per spec) ────────────────────────
@@ -190,6 +208,9 @@ export default function Home() {
   });
   const [activeNav, setActiveNav] = useState<'home' | 'routes' | 'rewards' | 'impact' | 'settings'>('home');
 
+  const [userStats, setUserStats] = useState<UserStats>(() => readUserStats());
+  const [recentRoutes, setRecentRoutes] = useState<RecentRoute[]>(() => readRecentRoutes());
+
   // ── Transactional simulation state machine (localStorage) ──
   const [commuteLock, setCommuteLock] = useState<CommuteLockData>(() => readCommuteLock());
 
@@ -199,12 +220,15 @@ export default function Home() {
   }, []);
 
   const startCommute = useCallback(
-    (destination: string, mode: RouteOptionKey) => {
+    (originLoc: Location, destinationLoc: Location, destination: string, mode: RouteOptionKey) => {
       const etaByMode: Record<RouteOptionKey, number> = { MRT: 18, BUS: 28, WALK: 45 };
       persistCommuteLock({
         state: 'in_transit',
         destination,
         etaMinutes: etaByMode[mode],
+        origin: originLoc,
+        destinationLocation: destinationLoc,
+        mode,
       });
     },
     [persistCommuteLock]
@@ -219,8 +243,40 @@ export default function Home() {
   }, []);
 
   const claimRewards = useCallback(() => {
-    persistCommuteLock(DEFAULT_COMMUTE_LOCK);
-  }, [persistCommuteLock]);
+    setCommuteLock((prev) => {
+      if (prev.state !== 'complete') return prev;
+
+      setUserStats((stats) => {
+        const nextStats: UserStats = {
+          ...stats,
+          co2SavedKg: Number((stats.co2SavedKg + COMMUTE_REWARD.co2Kg).toFixed(1)),
+          co2SavedTodayKg: Number((stats.co2SavedTodayKg + COMMUTE_REWARD.co2Kg).toFixed(1)),
+          greenCommutes: stats.greenCommutes + 1,
+          streakCoins: stats.streakCoins + COMMUTE_REWARD.coins,
+        };
+        writeUserStats(nextStats);
+        return nextStats;
+      });
+
+      if (prev.origin && prev.destinationLocation && prev.mode) {
+        const entry: RecentRoute = {
+          id: Math.random().toString(36).slice(2, 11),
+          origin: prev.origin,
+          destination: prev.destinationLocation,
+          mode: prev.mode,
+          timestamp: Date.now(),
+        };
+        setRecentRoutes((routes) => {
+          const next = [entry, ...routes].slice(0, 20);
+          writeRecentRoutes(next);
+          return next;
+        });
+      }
+
+      localStorage.setItem(STORAGE_KEYS.COMMUTE_LOCK, JSON.stringify(DEFAULT_COMMUTE_LOCK));
+      return DEFAULT_COMMUTE_LOCK;
+    });
+  }, []);
 
   const isInTransit = commuteLock.state === 'in_transit';
   const isComplete = commuteLock.state === 'complete';
@@ -231,6 +287,51 @@ export default function Home() {
   const [destination, setDestination] = useState<Location | null>(null);
   const [comparison, setComparison] = useState<RoutesComparison | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [preferredRouteMode, setPreferredRouteMode] = useState<RouteOptionKey | undefined>();
+
+  const fetchRouteComparison = useCallback(
+    async (originLoc: Location, destinationLoc: Location, mode?: CommuteMode | RouteOptionKey) => {
+      setOrigin(originLoc);
+      setDestination(destinationLoc);
+      setPreferredRouteMode(mode);
+      setIsSearching(true);
+      setComparison(null);
+      try {
+        const response = await fetch('/api/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origin: originLoc, destination: destinationLoc }),
+        });
+        if (!response.ok) throw new Error('Failed to fetch routes');
+        const data: RoutesComparison = await response.json();
+        setComparison(data);
+      } catch (error) {
+        console.error('Search error:', error);
+        alert('Failed to load route details. Please try again.');
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    []
+  );
+
+  const handleRecentRouteSelect = useCallback(
+    (route: RecentRoute) => {
+      setActiveNav('home');
+      void fetchRouteComparison(route.origin, route.destination, route.mode);
+    },
+    [fetchRouteComparison]
+  );
+
+  const handleSavedRouteSelect = useCallback(
+    (trip: Trip) => {
+      const mode: RouteOptionKey =
+        trip.mode === 'WALK' ? 'WALK' : trip.mode === 'PT' ? 'MRT' : 'MRT';
+      setActiveNav('home');
+      void fetchRouteComparison(trip.origin, trip.destination, mode);
+    },
+    [fetchRouteComparison]
+  );
 
   const handleSwap = () => {
     const temp = origin;
@@ -243,23 +344,8 @@ export default function Home() {
       alert('Please select both origin and destination');
       return;
     }
-    setIsSearching(true);
-    setComparison(null);
-    try {
-      const response = await fetch('/api/route', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin, destination }),
-      });
-      if (!response.ok) throw new Error('Failed to fetch routes');
-      const data: RoutesComparison = await response.json();
-      setComparison(data);
-    } catch (error) {
-      console.error('Search error:', error);
-      alert('Failed to search routes. Please try again.');
-    } finally {
-      setIsSearching(false);
-    }
+    setPreferredRouteMode(undefined);
+    await fetchRouteComparison(origin, destination);
   };
 
   const handleTripSelect = (
@@ -291,7 +377,8 @@ export default function Home() {
     { key: 'settings' as const, icon: 'person', label: 'Account' },
   ];
 
-  const routeOptions = comparison ? buildRouteOptions(comparison) : [];
+  const routeOptions = comparison ? buildRouteOptions(comparison, preferredRouteMode) : [];
+  const pendingCoins = isComplete ? COMMUTE_REWARD.coins : 0;
 
   return (
     <div className="ecoquest-app-shell min-h-screen bg-slate-950 flex items-start justify-center py-6 px-4">
@@ -316,7 +403,7 @@ export default function Home() {
             >
               monetization_on
             </span>
-            <span className="text-emerald-400">340 Coins</span>
+            <span className="text-emerald-400">{userStats.streakCoins} Coins</span>
           </div>
         </header>
 
@@ -325,7 +412,7 @@ export default function Home() {
             <>
               <EcoQuestDashboardHeader />
               <div className="mb-4">
-                <DashboardCard />
+                <DashboardCard userStats={userStats} pendingCoins={pendingCoins} />
               </div>
               <div className="mb-3">
                 <TrainAlertBanner />
@@ -333,76 +420,95 @@ export default function Home() {
 
               {/* Search panel — bounded scroll container */}
               <div className="w-full max-w-full overflow-x-hidden overflow-y-auto max-h-[calc(932px-220px)]">
-                {!comparison ? (
-                  <div className="ecoquest-card-dark p-3 mt-1 space-y-2">
-                    <div>
-                      <h2 className="text-sm font-bold text-white">Where are you going?</h2>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Find the greenest route across Singapore.
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 space-y-2">
-                        <LocationInput
-                          placeholder="Origin (e.g., One-North MRT)"
-                          value={origin}
-                          onChange={setOrigin}
-                          icon="origin"
-                          variant="dark"
-                        />
-                        <LocationInput
-                          placeholder="Destination (e.g., Raffles Place MRT)"
-                          value={destination}
-                          onChange={setDestination}
-                          icon="destination"
-                          variant="dark"
-                        />
+                {isSearching && !comparison ? (
+                  <div className="flex flex-col items-center justify-center py-16 px-4">
+                    <span className="material-symbols-outlined text-[32px] text-emerald-400 animate-spin mb-3">
+                      progress_activity
+                    </span>
+                    <p className="text-sm text-slate-400">Loading route details…</p>
+                  </div>
+                ) : !comparison ? (
+                  <>
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 mx-4 mt-3 space-y-2">
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Where are you going?</h2>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Find the greenest route across Singapore.
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 space-y-2">
+                          <LocationInput
+                            placeholder="Origin (e.g., One-North MRT)"
+                            value={origin}
+                            onChange={setOrigin}
+                            icon="origin"
+                            variant="dark"
+                          />
+                          <LocationInput
+                            placeholder="Destination (e.g., Raffles Place MRT)"
+                            value={destination}
+                            onChange={setDestination}
+                            icon="destination"
+                            variant="dark"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSwap}
+                          className="w-8 h-8 mt-1 rounded-full flex items-center justify-center shrink-0 bg-slate-950 border border-slate-800 text-slate-400 hover:text-emerald-400"
+                          aria-label="Swap origin and destination"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">swap_vert</span>
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                          Prefer
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { icon: 'directions_transit', label: 'MRT' },
+                            { icon: 'directions_bus', label: 'Bus' },
+                            { icon: 'directions_walk', label: 'Active' },
+                          ].map((mode) => (
+                            <button
+                              key={mode.label}
+                              type="button"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-950 border border-slate-800 text-slate-400"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">{mode.icon}</span>
+                              {mode.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <button
                         type="button"
-                        onClick={handleSwap}
-                        className="w-8 h-8 mt-1 rounded-full flex items-center justify-center shrink-0 bg-slate-950 border border-slate-800 text-slate-400 hover:text-emerald-400"
-                        aria-label="Swap origin and destination"
+                        onClick={handleSearch}
+                        disabled={isSearching}
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-xs font-bold py-2 rounded-xl transition-all shadow-md"
                       >
-                        <span className="material-symbols-outlined text-[16px]">swap_vert</span>
+                        {isSearching ? 'Searching…' : 'Search Routes'}
                       </button>
                     </div>
-                    <div className="space-y-2">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-                        Prefer
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          { icon: 'directions_transit', label: 'MRT' },
-                          { icon: 'directions_bus', label: 'Bus' },
-                          { icon: 'directions_walk', label: 'Active' },
-                        ].map((mode) => (
-                          <button
-                            key={mode.label}
-                            type="button"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-950 border border-slate-800 text-slate-400"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">{mode.icon}</span>
-                            {mode.label}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="mx-4">
+                      <HomePanels
+                        recentRoutes={recentRoutes}
+                        userStats={userStats}
+                        onRouteSelect={handleRecentRouteSelect}
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleSearch}
-                      disabled={isSearching}
-                      className="ecoquest-btn-primary"
-                    >
-                      {isSearching ? 'Searching…' : 'Search Routes'}
-                    </button>
-                  </div>
+                  </>
                 ) : (
-                  <div className="w-full min-w-0 py-2">
+                  <div className="w-full min-w-0 max-w-full overflow-x-hidden px-4 py-2">
                     <div className="flex items-center gap-2 mb-3">
                       <button
                         type="button"
-                        onClick={() => setComparison(null)}
+                        onClick={() => {
+                          setComparison(null);
+                          setPreferredRouteMode(undefined);
+                        }}
                         className="w-8 h-8 rounded-full flex items-center justify-center border border-slate-800 bg-slate-900/80 text-white"
                       >
                         <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -427,8 +533,8 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Route result cards — START COMMUTE on every option */}
-                    <div className="flex flex-col gap-2 px-0 py-2">
+                    {/* Route result cards — compact vertical stack */}
+                    <div className="flex flex-col gap-2 py-2">
                       {routeOptions.map((option) => (
                         <RouteResultCard
                           key={option.key}
@@ -436,7 +542,12 @@ export default function Home() {
                           commuteLocked={commuteLocked}
                           onStartCommute={() => {
                             if (!commuteLocked) {
-                              startCommute(formatDestLabel(comparison.destination.name), option.key);
+                              startCommute(
+                                comparison.origin,
+                                comparison.destination,
+                                formatDestLabel(comparison.destination.name),
+                                option.key
+                              );
                             }
                           }}
                         />
@@ -465,19 +576,22 @@ export default function Home() {
                   </div>
                 )}
               </div>
-
-              {!comparison && <HomePanels trips={trips} />}
             </>
           )}
 
           {activeNav === 'impact' && (
             <>
               <h1 className="text-base font-bold mb-4 text-white">Impact Stats</h1>
-              <DashboardCard trips={trips} extended />
+              <DashboardCard
+                userStats={userStats}
+                pendingCoins={pendingCoins}
+                trips={trips}
+                extended
+              />
             </>
           )}
 
-          {activeNav === 'rewards' && <RewardsPage />}
+          {activeNav === 'rewards' && <RewardsPage streakCoins={userStats.streakCoins} />}
 
           {activeNav === 'routes' && (
             <>
@@ -494,7 +608,12 @@ export default function Home() {
               ) : (
                 <div className="space-y-2">
                   {trips.map((trip) => (
-                    <div key={trip.id} className="ecoquest-card-dark p-3 flex items-center gap-3">
+                    <button
+                      key={trip.id}
+                      type="button"
+                      onClick={() => handleSavedRouteSelect(trip)}
+                      className="ecoquest-card-dark p-3 flex items-center gap-3 w-full text-left hover:bg-slate-800/60 transition-colors"
+                    >
                       <span className="material-symbols-outlined text-emerald-400">
                         {trip.mode === 'PT'
                           ? 'directions_transit'
@@ -511,7 +630,10 @@ export default function Home() {
                           {Math.round(trip.carbonSaved)}g CO₂
                         </div>
                       </div>
-                    </div>
+                      <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">
+                        chevron_right
+                      </span>
+                    </button>
                   ))}
                 </div>
               )}
