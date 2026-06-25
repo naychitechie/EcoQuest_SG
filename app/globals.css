@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #fbf9f2;
+  --color-foreground: #1b1c18;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'Courier Prime', monospace;
+
+  /* EcoPrecision colors as Tailwind tokens */
+  --color-eco-surface: #fbf9f2;
+  --color-eco-surface-dim: #dcdad3;
+  --color-eco-surface-lowest: #ffffff;
+  --color-eco-surface-low: #f6f4ec;
+  --color-eco-surface-container: #f0eee7;
+  --color-eco-surface-high: #eae8e1;
+  --color-eco-surface-highest: #e4e2dc;
+  --color-eco-on-surface: #1b1c18;
+  --color-eco-on-surface-variant: #42493b;
+  --color-eco-outline: #727969;
+  --color-eco-outline-variant: #c2c9b7;
+  --color-eco-primary: #275300;
+  --color-eco-on-primary: #ffffff;
+  --color-eco-primary-container: #3b6d11;
+  --color-eco-on-primary-container: #b2ed83;
+  --color-eco-primary-fixed: #b8f389;
+  --color-eco-primary-fixed-dim: #9dd770;
+  --color-eco-secondary: #0061a2;
+  --color-eco-on-secondary: #ffffff;
+  --color-eco-secondary-container: #68b3fe;
+  --color-eco-on-secondary-container: #004473;
+  --color-eco-tertiary: #862a00;
+  --color-eco-on-tertiary: #ffffff;
+  --color-eco-tertiary-container: #ae3900;
+  --color-eco-error: #ba1a1a;
+  --color-eco-on-error: #ffffff;
+  --color-eco-mrt-teal: #1D9E75;
+  --color-eco-grab-rust: #993C1D;
+  --color-eco-success-bg: #E1F5EE;
+  --color-eco-success-text: #085041;
+  --color-eco-info-bg: #E6F1FB;
+  --color-eco-info-text: #0C447C;
+  --color-eco-warning-bg: #FAEEDA;
+  --color-eco-warning-text: #633806;
+  --color-eco-accent-indigo-bg: #EEEDFE;
+  --color-eco-accent-indigo-text: #3C3489;
+  --color-eco-inverse-surface: #30312c;
+  --color-eco-inverse-on-surface: #f3f1ea;
+}
+
+:root {
+  /* Raw CSS custom properties for inline styles */
+  --eco-surface: #fbf9f2;
+  --eco-surface-dim: #dcdad3;
+  --eco-surface-bright: #fbf9f2;
+  --eco-surface-container-lowest: #ffffff;
+  --eco-surface-container-low: #f6f4ec;
+  --eco-surface-container: #f0eee7;
+  --eco-surface-container-high: #eae8e1;
+  --eco-surface-container-highest: #e4e2dc;
+  --eco-on-surface: #1b1c18;
+  --eco-on-surface-variant: #42493b;
+  --eco-outline: #727969;
+  --eco-outline-variant: #c2c9b7;
+  --eco-primary: #275300;
+  --eco-on-primary: #ffffff;
+  --eco-primary-container: #3b6d11;
+  --eco-on-primary-container: #b2ed83;
+  --eco-primary-fixed: #b8f389;
+  --eco-primary-fixed-dim: #9dd770;
+  --eco-secondary: #0061a2;
+  --eco-on-secondary: #ffffff;
+  --eco-secondary-container: #68b3fe;
+  --eco-on-secondary-container: #004473;
+  --eco-tertiary: #862a00;
+  --eco-on-tertiary: #ffffff;
+  --eco-tertiary-container: #ae3900;
+  --eco-error: #ba1a1a;
+  --eco-on-error: #ffffff;
+  --eco-mrt-teal: #1D9E75;
+  --eco-grab-rust: #993C1D;
+  --eco-success-mint-bg: #E1F5EE;
+  --eco-success-mint-text: #085041;
+  --eco-info-blue-bg: #E6F1FB;
+  --eco-info-blue-text: #0C447C;
+  --eco-warning-amber-bg: #FAEEDA;
+  --eco-warning-amber-text: #633806;
+  --eco-accent-indigo-bg: #EEEDFE;
+  --eco-accent-indigo-text: #3C3489;
+  --eco-inverse-surface: #30312c;
+  --eco-inverse-on-surface: #f3f1ea;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Base Layer – body & html overrides that survive Tailwind reset */
+/* ═══════════════════════════════════════════════════════════════ */
+@layer base {
+  html {
+    background-color: #fbf9f2;
+    color: #1b1c18;
+  }
+  body {
+    background-color: #fbf9f2;
+    color: #1b1c18;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Typography Helpers                                           */
+/* ═══════════════════════════════════════════════════════════════ */
+.font-heading {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.text-headline-lg {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.text-headline-md {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.text-headline-sm {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.text-body-lg {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.text-body-md {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
+.text-label-caps {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.text-data-value {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  EcoPrecision Card                                            */
+/* ═══════════════════════════════════════════════════════════════ */
+.eco-card {
+  background: var(--eco-surface-container-lowest);
+  border: 0.5px solid var(--eco-outline-variant);
+  border-radius: 0.75rem;
+  padding: 16px 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Bottom safe area padding for mobile nav                      */
+/* ═══════════════════════════════════════════════════════════════ */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Scrollbar & Selection                                        */
+/* ═══════════════════════════════════════════════════════════════ */
+::selection {
+  background-color: #b8f389;
+  color: #0c2000;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--eco-outline-variant);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--eco-outline);
+}
