@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import DashboardCard from '@/components/DashboardCard';
 import HomePanels from '@/components/HomePanels';
+import DailyQuestsSection from '@/components/DailyQuestsSection';
 import TrainAlertBanner from '@/components/TrainAlertBanner';
 import RewardsPage from '@/components/RewardsPage';
 import SettingsPage from '@/components/SettingsPage';
@@ -16,14 +17,28 @@ import {
   UserStats,
   RecentRoute,
   CommuteMode,
+  DEFAULT_USER_STATS,
+  DEFAULT_QUEST_CLAIMS,
+  DailyQuestClaims,
 } from '@/lib/constants';
 import {
   readUserStats,
   writeUserStats,
   readRecentRoutes,
   writeRecentRoutes,
-  COMMUTE_REWARD,
+  readQuestClaims,
+  writeQuestClaims,
+  getModeReward,
+  QUEST_REWARDS,
 } from '@/lib/userStats';
+import {
+  AppPreferences,
+  DEFAULT_APP_PREFERENCES,
+  readAppPreferences,
+  writeAppPreferences,
+  resolveTheme,
+  applyDocumentTheme,
+} from '@/lib/appPreferences';
 
 // ─── Commute lock localStorage helpers ───────────────────────────────────────
 
@@ -60,6 +75,8 @@ interface RouteOption {
   fare: number;
   emissionsPerKm: number;
   isRecommended: boolean;
+  xpReward: number;
+  co2RewardKg: number;
 }
 
 function buildRouteOptions(comparison: RoutesComparison, preferredMode?: RouteOptionKey): RouteOption[] {
@@ -81,6 +98,8 @@ function buildRouteOptions(comparison: RoutesComparison, preferredMode?: RouteOp
       fare: ptRoute && ptRoute.totalFare > 0 ? ptRoute.totalFare : 1.84,
       emissionsPerKm: 4,
       isRecommended: preferredMode ? preferredMode === 'MRT' : true,
+      xpReward: 60,
+      co2RewardKg: 1.2,
     },
     {
       key: 'BUS',
@@ -93,6 +112,8 @@ function buildRouteOptions(comparison: RoutesComparison, preferredMode?: RouteOp
       fare: ptRoute && ptRoute.totalFare > 0 ? ptRoute.totalFare + 0.26 : 2.1,
       emissionsPerKm: 25,
       isRecommended: preferredMode === 'BUS',
+      xpReward: 50,
+      co2RewardKg: 1.0,
     },
     {
       key: 'WALK',
@@ -109,6 +130,8 @@ function buildRouteOptions(comparison: RoutesComparison, preferredMode?: RouteOp
       fare: 0,
       emissionsPerKm: 0,
       isRecommended: preferredMode === 'WALK',
+      xpReward: 40,
+      co2RewardKg: 0.8,
     },
   ];
 
@@ -165,7 +188,13 @@ function RouteResultCard({ option, commuteLocked, onStartCommute }: RouteResultC
         <span>
           {option.distance} km · {option.emissionsPerKm} g/km CO₂
         </span>
-        {option.isRecommended && (
+        <span className="text-emerald-400 font-bold text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
+          +{option.xpReward} XP
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between text-[11px]">
+        {option.isRecommended ? (
           <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
             <span
               className="material-symbols-outlined text-[12px]"
@@ -175,6 +204,8 @@ function RouteResultCard({ option, commuteLocked, onStartCommute }: RouteResultC
             </span>
             Recommended
           </span>
+        ) : (
+          <span className="text-slate-500">+{option.co2RewardKg} kg CO₂</span>
         )}
       </div>
 
@@ -196,23 +227,56 @@ function RouteResultCard({ option, commuteLocked, onStartCommute }: RouteResultC
 
 export default function Home() {
   const [trips, setTrips] = useState<Trip[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEYS.TRIPS);
-        return stored ? JSON.parse(stored) : [];
-      } catch {
-        return [];
-      }
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TRIPS);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
     }
-    return [];
   });
-  const [activeNav, setActiveNav] = useState<'home' | 'routes' | 'rewards' | 'impact' | 'settings'>('home');
+  const [activeNav, setActiveNav] = useState<
+    'home' | 'plan' | 'routes' | 'rewards' | 'impact' | 'settings'
+  >('home');
 
-  const [userStats, setUserStats] = useState<UserStats>(() => readUserStats());
-  const [recentRoutes, setRecentRoutes] = useState<RecentRoute[]>(() => readRecentRoutes());
+  const [userStats, setUserStats] = useState<UserStats>(() =>
+    typeof window === 'undefined' ? DEFAULT_USER_STATS : readUserStats()
+  );
+  const [recentRoutes, setRecentRoutes] = useState<RecentRoute[]>(() =>
+    typeof window === 'undefined' ? [] : readRecentRoutes()
+  );
+  const [questClaims, setQuestClaims] = useState<DailyQuestClaims>(() =>
+    typeof window === 'undefined' ? DEFAULT_QUEST_CLAIMS : readQuestClaims()
+  );
+  const [appPreferences, setAppPreferences] = useState<AppPreferences>(() =>
+    typeof window === 'undefined' ? DEFAULT_APP_PREFERENCES : readAppPreferences()
+  );
+
+  useEffect(() => {
+    applyDocumentTheme(resolveTheme(appPreferences.theme));
+  }, [appPreferences.theme]);
+
+  useEffect(() => {
+    if (appPreferences.theme !== 'auto') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyDocumentTheme(resolveTheme('auto'));
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [appPreferences.theme]);
+
+  const handlePreferencesChange = useCallback((next: AppPreferences) => {
+    setAppPreferences(next);
+    writeAppPreferences(next);
+    applyDocumentTheme(resolveTheme(next.theme));
+  }, []);
+
+  const resolvedTheme = resolveTheme(appPreferences.theme);
+  const ecoDensity = appPreferences.ecoPrecision ? 'compact' : 'comfortable';
 
   // ── Transactional simulation state machine (localStorage) ──
-  const [commuteLock, setCommuteLock] = useState<CommuteLockData>(() => readCommuteLock());
+  const [commuteLock, setCommuteLock] = useState<CommuteLockData>(() =>
+    typeof window === 'undefined' ? DEFAULT_COMMUTE_LOCK : readCommuteLock()
+  );
 
   const persistCommuteLock = useCallback((next: CommuteLockData) => {
     setCommuteLock(next);
@@ -246,13 +310,15 @@ export default function Home() {
     setCommuteLock((prev) => {
       if (prev.state !== 'complete') return prev;
 
+      const reward = prev.mode ? getModeReward(prev.mode) : getModeReward('MRT');
+
       setUserStats((stats) => {
         const nextStats: UserStats = {
           ...stats,
-          co2SavedKg: Number((stats.co2SavedKg + COMMUTE_REWARD.co2Kg).toFixed(1)),
-          co2SavedTodayKg: Number((stats.co2SavedTodayKg + COMMUTE_REWARD.co2Kg).toFixed(1)),
+          co2SavedKg: Number((stats.co2SavedKg + reward.co2Kg).toFixed(1)),
+          co2SavedTodayKg: Number((stats.co2SavedTodayKg + reward.co2Kg).toFixed(1)),
           greenCommutes: stats.greenCommutes + 1,
-          streakCoins: stats.streakCoins + COMMUTE_REWARD.coins,
+          streakCoins: stats.streakCoins + reward.coins,
         };
         writeUserStats(nextStats);
         return nextStats;
@@ -317,7 +383,7 @@ export default function Home() {
 
   const handleRecentRouteSelect = useCallback(
     (route: RecentRoute) => {
-      setActiveNav('home');
+      setActiveNav('plan');
       void fetchRouteComparison(route.origin, route.destination, route.mode);
     },
     [fetchRouteComparison]
@@ -327,7 +393,7 @@ export default function Home() {
     (trip: Trip) => {
       const mode: RouteOptionKey =
         trip.mode === 'WALK' ? 'WALK' : trip.mode === 'PT' ? 'MRT' : 'MRT';
-      setActiveNav('home');
+      setActiveNav('plan');
       void fetchRouteComparison(trip.origin, trip.destination, mode);
     },
     [fetchRouteComparison]
@@ -369,22 +435,61 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(updatedTrips));
   };
 
+  const handleClaimFoodQuest = useCallback(() => {
+    if (questClaims.food) return;
+    const reward = QUEST_REWARDS.food;
+    setUserStats((stats) => {
+      const next = { ...stats, streakCoins: stats.streakCoins + reward.coins };
+      writeUserStats(next);
+      return next;
+    });
+    setQuestClaims((prev) => {
+      const next = { ...prev, food: true };
+      writeQuestClaims(next);
+      return next;
+    });
+  }, [questClaims.food]);
+
+  const handleVerifyEnergyQuest = useCallback(async () => {
+    if (questClaims.energy) return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const reward = QUEST_REWARDS.energy;
+    setUserStats((stats) => {
+      const next = { ...stats, streakCoins: stats.streakCoins + reward.coins };
+      writeUserStats(next);
+      return next;
+    });
+    setQuestClaims((prev) => {
+      const next = { ...prev, energy: true };
+      writeQuestClaims(next);
+      return next;
+    });
+  }, [questClaims.energy]);
+
   const navItems = [
-    { key: 'home' as const, icon: 'directions_transit', label: 'Plan' },
+    { key: 'home' as const, icon: 'home', label: 'Home' },
+    { key: 'plan' as const, icon: 'directions_transit', label: 'Plan' },
     { key: 'routes' as const, icon: 'map', label: 'Routes' },
     { key: 'rewards' as const, icon: 'emoji_events', label: 'Rewards' },
     { key: 'impact' as const, icon: 'analytics', label: 'Impact' },
-    { key: 'settings' as const, icon: 'person', label: 'Account' },
+    { key: 'settings' as const, icon: 'settings', label: 'Settings' },
   ];
 
   const routeOptions = comparison ? buildRouteOptions(comparison, preferredRouteMode) : [];
-  const pendingCoins = isComplete ? COMMUTE_REWARD.coins : 0;
+  const pendingReward =
+    isComplete && commuteLock.mode ? getModeReward(commuteLock.mode) : getModeReward('MRT');
+  const pendingCoins = isComplete ? pendingReward.coins : 0;
 
   return (
-    <div className="ecoquest-app-shell min-h-screen bg-slate-950 flex items-start justify-center py-6 px-4">
+    <div
+      className="ecoquest-app-shell bg-slate-950 flex items-center justify-center"
+      data-theme={resolvedTheme}
+    >
       <div
-        className="ecoquest-phone-frame max-w-[430px] min-h-[932px] mx-auto border-[8px] border-slate-800 rounded-[60px] shadow-2xl overflow-hidden bg-[#121824] text-white font-sans w-full"
-        style={{ backgroundColor: '#121824', color: '#ffffff' }}
+        className="ecoquest-phone-frame max-w-[430px] mx-auto border-[8px] rounded-[60px] shadow-2xl overflow-hidden font-sans w-full h-full"
+        suppressHydrationWarning
+        data-theme={resolvedTheme}
+        data-eco-density={ecoDensity}
       >
         <header className="ecoquest-phone-header">
           <div className="flex items-center gap-2">
@@ -407,19 +512,29 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="ecoquest-phone-main">
+        <div className="ecoquest-phone-body">
+          <main className="ecoquest-phone-main">
           {activeNav === 'home' && (
-            <>
+            <div className="ecoquest-tab-panel">
               <EcoQuestDashboardHeader />
               <div className="mb-4">
                 <DashboardCard userStats={userStats} pendingCoins={pendingCoins} />
               </div>
-              <div className="mb-3">
+              <DailyQuestsSection
+                questClaims={questClaims}
+                onClaimFood={handleClaimFoodQuest}
+                onVerifyEnergy={handleVerifyEnergyQuest}
+              />
+            </div>
+          )}
+
+          {activeNav === 'plan' && (
+            <div className="ecoquest-tab-panel flex flex-col">
+              <div className="mb-3 shrink-0">
                 <TrainAlertBanner />
               </div>
 
-              {/* Search panel — bounded scroll container */}
-              <div className="w-full max-w-full overflow-x-hidden overflow-y-auto max-h-[calc(932px-220px)]">
+              <div className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto">
                 {isSearching && !comparison ? (
                   <div className="flex flex-col items-center justify-center py-16 px-4">
                     <span className="material-symbols-outlined text-[32px] text-emerald-400 animate-spin mb-3">
@@ -534,7 +649,7 @@ export default function Home() {
                     </div>
 
                     {/* Route result cards — compact vertical stack */}
-                    <div className="flex flex-col gap-2 py-2">
+                    <div className="flex flex-col ecoquest-density-stack px-0 py-2">
                       {routeOptions.map((option) => (
                         <RouteResultCard
                           key={option.key}
@@ -576,25 +691,30 @@ export default function Home() {
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {activeNav === 'impact' && (
-            <>
+            <div className="ecoquest-tab-panel">
               <h1 className="text-base font-bold mb-4 text-white">Impact Stats</h1>
               <DashboardCard
                 userStats={userStats}
                 pendingCoins={pendingCoins}
                 trips={trips}
+                recentRoutes={recentRoutes}
                 extended
               />
-            </>
+            </div>
           )}
 
-          {activeNav === 'rewards' && <RewardsPage streakCoins={userStats.streakCoins} />}
+          {activeNav === 'rewards' && (
+            <div className="ecoquest-tab-panel">
+              <RewardsPage streakCoins={userStats.streakCoins} />
+            </div>
+          )}
 
           {activeNav === 'routes' && (
-            <>
+            <div className="ecoquest-tab-panel">
               <h1 className="text-base font-bold mb-4 text-white">Saved Routes</h1>
               {trips.length === 0 ? (
                 <div className="ecoquest-card-dark text-center py-12 px-4">
@@ -637,15 +757,22 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </>
+            </div>
           )}
 
-          {activeNav === 'settings' && <SettingsPage />}
-        </main>
+          {activeNav === 'settings' && (
+            <div className="ecoquest-tab-panel">
+              <SettingsPage
+                preferences={appPreferences}
+                onPreferencesChange={handlePreferencesChange}
+              />
+            </div>
+          )}
+          </main>
 
-        {/* ── Transactional simulation overlays (localStorage-driven) ── */}
-        {(isInTransit || isComplete) && (
-          <div className="ecoquest-overlay-layer">
+          {/* ── Transactional simulation overlays (localStorage-driven) ── */}
+          {(isInTransit || isComplete) && (
+            <div className="ecoquest-overlay-layer">
             {isInTransit && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#121824]/95 backdrop-blur-sm px-6">
                 <div className="w-full max-w-[340px] rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-[#1a2332] to-[#0d1117] p-6 text-center shadow-2xl">
@@ -686,7 +813,8 @@ export default function Home() {
                   <h2 className="text-[17px] font-bold text-white mb-2">COMMUTE COMPLETE!</h2>
                   <p className="text-[13px] text-emerald-300 font-semibold mb-1">Reward Verified!</p>
                   <p className="text-[12px] text-white/70 mb-6 leading-relaxed">
-                    +50 Streak Coins Earned &nbsp;|&nbsp; 1.2kg CO₂ Saved
+                    +{pendingReward.coins} Streak Coins Earned &nbsp;|&nbsp; {pendingReward.co2Kg}kg
+                    CO₂ Saved
                   </p>
                   <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-6">
                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 w-full" />
@@ -701,8 +829,9 @@ export default function Home() {
                 </div>
               </div>
             )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         <nav className="ecoquest-phone-nav">
           {navItems.map((item) => {
@@ -717,8 +846,9 @@ export default function Home() {
                   color: isActive ? '#b2ed83' : 'rgba(255,255,255,0.45)',
                   background: isActive ? 'rgba(39,83,0,0.35)' : 'transparent',
                   borderRadius: isActive ? '999px' : undefined,
-                  padding: isActive ? '4px 16px' : undefined,
-                  width: isActive ? undefined : '64px',
+                  padding: isActive ? '4px 8px' : undefined,
+                  width: isActive ? undefined : '100%',
+                  maxWidth: isActive ? '4.75rem' : undefined,
                 }}
               >
                 <span
@@ -727,7 +857,7 @@ export default function Home() {
                 >
                   {item.icon}
                 </span>
-                <span className="text-[10px] mt-0.5 uppercase tracking-wide font-semibold">
+                <span className="text-[9px] mt-0.5 uppercase tracking-wide font-semibold truncate max-w-full">
                   {item.label}
                 </span>
               </button>

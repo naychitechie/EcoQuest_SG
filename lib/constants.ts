@@ -26,6 +26,8 @@ export const STORAGE_KEYS = {
   COMMUTE_LOCK: 'ecoquest_commute_lock',
   USER_STATS: 'ecoquest_user_stats',
   RECENT_ROUTES: 'ecoquest_recent_routes',
+  QUEST_CLAIMS: 'ecoquest_quest_claims',
+  APP_PREFERENCES: 'ecoquest_app_preferences',
 };
 
 export type CommuteLockState = 'idle' | 'in_transit' | 'complete';
@@ -70,3 +72,18 @@ export interface RecentRoute {
   mode: CommuteMode;
   timestamp: number;
 }
+
+export interface DailyQuestClaims {
+  food: boolean;
+  energy: boolean;
+  /** Bumped to reset legacy claimed state to unclaimed */
+  v?: number;
+}
+
+export const QUEST_CLAIMS_VERSION = 3;
+
+export const DEFAULT_QUEST_CLAIMS: DailyQuestClaims = {
+  food: false,
+  energy: false,
+  v: QUEST_CLAIMS_VERSION,
+};

@@ -2,12 +2,14 @@
 
 import { Trip } from '@/lib/types';
 import { formatCarbon } from '@/lib/utils';
-import { UserStats } from '@/lib/constants';
+import { RecentRoute, UserStats } from '@/lib/constants';
+import { getModeReward } from '@/lib/userStats';
 
 interface DashboardCardProps {
   userStats: UserStats;
   pendingCoins?: number;
   trips?: Trip[];
+  recentRoutes?: RecentRoute[];
   extended?: boolean;
 }
 
@@ -55,10 +57,11 @@ export default function DashboardCard({
   userStats,
   pendingCoins = 0,
   trips: propTrips,
+  recentRoutes = [],
   extended = false,
 }: DashboardCardProps) {
   const trips = propTrips ?? [];
-  const totalCarbonSaved = trips.reduce((sum, trip) => sum + (trip.carbonSaved || 0), 0);
+  const totalCarbonGrams = userStats.co2SavedKg * 1000;
   const totalWalkKm = trips
     .filter((t) => t.mode === 'WALK')
     .reduce((sum, t) => sum + t.duration * 0.08, 0);
@@ -66,12 +69,12 @@ export default function DashboardCard({
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN'];
   const monthData = [0, 0, 0, 0, 0, 0];
   const now = new Date();
-  trips.forEach((trip) => {
-    const tripDate = new Date(trip.timestamp);
+  recentRoutes.forEach((route) => {
+    const routeDate = new Date(route.timestamp);
     const monthsAgo =
-      (now.getFullYear() - tripDate.getFullYear()) * 12 + now.getMonth() - tripDate.getMonth();
+      (now.getFullYear() - routeDate.getFullYear()) * 12 + now.getMonth() - routeDate.getMonth();
     if (monthsAgo >= 0 && monthsAgo < 6) {
-      monthData[5 - monthsAgo] += trip.carbonSaved || 0;
+      monthData[5 - monthsAgo] += getModeReward(route.mode).co2Kg * 1000;
     }
   });
   const maxMonthValue = Math.max(...monthData, 1);
@@ -82,7 +85,7 @@ export default function DashboardCard({
 
       {extended && (
         <>
-          {totalCarbonSaved >= 1000 && (
+          {totalCarbonGrams >= 1000 && (
             <div className="rounded-xl p-4 flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/25">
               <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/30">
                 <span className="material-symbols-outlined text-[18px] text-emerald-400">celebration</span>
@@ -90,7 +93,7 @@ export default function DashboardCard({
               <div>
                 <h3 className="text-[14px] font-semibold text-emerald-400">Carbon Milestone!</h3>
                 <p className="text-[12px] mt-0.5 text-emerald-300/80">
-                  You&apos;ve saved {formatCarbon(totalCarbonSaved)} of CO₂! Keep it up!
+                  You&apos;ve saved {formatCarbon(totalCarbonGrams)} of CO₂! Keep it up!
                 </p>
               </div>
             </div>
@@ -137,9 +140,7 @@ export default function DashboardCard({
             </div>
             <div className="rounded-xl p-3 border border-slate-800 bg-slate-900/60 text-center">
               <span className="text-[9px] uppercase text-slate-400">Eco Trips</span>
-              <div className="text-lg font-bold text-emerald-400 mt-1">
-                {trips.filter((t) => t.mode !== 'DRIVE').length}
-              </div>
+              <div className="text-lg font-bold text-emerald-400 mt-1">{userStats.greenCommutes}</div>
             </div>
           </div>
         </>

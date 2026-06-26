@@ -1,6 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  AppPreferences,
+  AppTheme,
+  applyDocumentTheme,
+  resolveTheme,
+} from '@/lib/appPreferences';
 
 function Toggle({
   enabled,
@@ -11,6 +17,9 @@ function Toggle({
 }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
       onClick={() => onChange(!enabled)}
       className={`w-10 h-5 rounded-full p-0.5 transition-colors flex items-center shrink-0 ${
         enabled ? 'bg-emerald-500 justify-end' : 'bg-slate-700 justify-start'
@@ -58,26 +67,13 @@ function SettingsSection({
   );
 }
 
-function ChevronRow({ label, sublabel }: { label: string; sublabel?: string }) {
-  return (
-    <button className="w-full flex items-center justify-between py-2.5 gap-3 text-left">
-      <div className="min-w-0">
-        <div className="text-sm text-white">{label}</div>
-        {sublabel && <div className="text-[11px] text-slate-400 mt-0.5">{sublabel}</div>}
-      </div>
-      <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0">chevron_right</span>
-    </button>
-  );
+interface SettingsPageProps {
+  preferences: AppPreferences;
+  onPreferencesChange: (next: AppPreferences) => void;
 }
 
-export default function SettingsPage() {
-  const [ecoPrecision, setEcoPrecision] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
-    if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
-      return 'dark';
-    }
-    return 'light';
-  });
+export default function SettingsPage({ preferences, onPreferencesChange }: SettingsPageProps) {
+  const { theme, ecoPrecision } = preferences;
   const [focusHoursStart, setFocusHoursStart] = useState('23:00');
   const [focusHoursEnd, setFocusHoursEnd] = useState('07:00');
   const [ltaAlertSync, setLtaAlertSync] = useState(true);
@@ -85,22 +81,14 @@ export default function SettingsPage() {
   const [dietGoal, setDietGoal] = useState(45);
   const [energyGoal, setEnergyGoal] = useState(55);
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'auto') => {
-    setTheme(newTheme);
-    if (typeof document !== 'undefined') {
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else if (newTheme === 'light') {
-        document.documentElement.classList.remove('dark');
-      } else {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (systemPrefersDark) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }
-    }
+  const handleThemeChange = (newTheme: AppTheme) => {
+    const next = { ...preferences, theme: newTheme };
+    onPreferencesChange(next);
+    applyDocumentTheme(resolveTheme(newTheme));
+  };
+
+  const handleEcoPrecisionChange = (enabled: boolean) => {
+    onPreferencesChange({ ...preferences, ecoPrecision: enabled });
   };
 
   return (
@@ -113,18 +101,21 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-3">
-        {/* Appearance */}
         <SettingsSection title="Appearance">
           <div className="py-2.5">
             <div className="text-[11px] text-slate-400 mb-2">Theme Selection</div>
             <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { key: 'light' as const, label: 'Light', icon: 'light_mode' },
-                { key: 'dark' as const, label: 'Dark', icon: 'dark_mode' },
-                { key: 'auto' as const, label: 'Auto', icon: 'settings_brightness' },
-              ].map((t) => (
+              {(
+                [
+                  { key: 'light' as const, label: 'Light', icon: 'light_mode' },
+                  { key: 'dark' as const, label: 'Dark', icon: 'dark_mode' },
+                  { key: 'auto' as const, label: 'Auto', icon: 'settings_brightness' },
+                ] as const
+              ).map((t) => (
                 <button
                   key={t.key}
+                  type="button"
+                  aria-pressed={theme === t.key}
                   onClick={() => handleThemeChange(t.key)}
                   className={`flex flex-col items-center py-2 rounded-lg border text-[10px] font-semibold transition-all ${
                     theme === t.key
@@ -138,12 +129,18 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
-          <SettingsRow label="Eco-Precision Mode" sublabel="High-density layout for route comparisons">
-            <Toggle enabled={ecoPrecision} onChange={setEcoPrecision} />
+          <SettingsRow
+            label="Eco-Precision Mode"
+            sublabel={
+              ecoPrecision
+                ? 'Compact high-density layout active'
+                : 'Comfortable spacing for route comparisons'
+            }
+          >
+            <Toggle enabled={ecoPrecision} onChange={handleEcoPrecisionChange} />
           </SettingsRow>
         </SettingsSection>
 
-        {/* Nudge & Agent Tuning */}
         <SettingsSection title="Nudge & Agent Tuning">
           <SettingsRow label="Focus Hours" sublabel="Silence agent notifications during sleep">
             <div className="flex items-center gap-1 shrink-0">
@@ -170,7 +167,6 @@ export default function SettingsPage() {
           </SettingsRow>
         </SettingsSection>
 
-        {/* Infrastructure Links */}
         <SettingsSection title="Infrastructure Links">
           <div className="py-2.5">
             <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
@@ -188,10 +184,8 @@ export default function SettingsPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Ready" />
             </div>
           </div>
-          <ChevronRow label="Data Privacy" sublabel="Control how your transit data is analyzed" />
         </SettingsSection>
 
-        {/* Eco-Goal Calibration */}
         <SettingsSection title="Eco-Goal Calibration">
           <div className="py-2.5 space-y-3">
             {[
