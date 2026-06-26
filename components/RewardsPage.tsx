@@ -41,7 +41,7 @@ const MILESTONES = [
 
 export default function RewardsPage({ streakCoins }: { streakCoins: number }) {
   return (
-    <div className="w-full min-w-0 overflow-y-auto max-h-[calc(932px-140px)] pb-2">
+    <div className="w-full min-w-0 h-full overflow-y-auto pb-2">
       {/* Hero header */}
       <div className="relative pt-4 pb-2 px-4">
         <div className="absolute top-4 right-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-sm font-semibold">
