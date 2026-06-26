@@ -701,6 +701,7 @@ export default function Home() {
                 userStats={userStats}
                 pendingCoins={pendingCoins}
                 trips={trips}
+                recentRoutes={recentRoutes}
                 extended
               />
             </div>
